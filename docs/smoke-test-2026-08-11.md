@@ -142,12 +142,13 @@ Final source-session state:
 
 The disposable fixture's `docs/CODEX_HANDOFF.md` was the only file changed by either continuation and retained two of five allowed history entries. Each completed handoff update was committed only after its Skill turn had stopped, outside the handoff continuation itself.
 
+The Plugin was then removed with `codex plugin remove codex-handoff@codex-handoff --json`. A structural comparison of `config.toml` before and after removal, excluding only the Plugin's own install and trust entries, found every unrelated setting unchanged. Reinstalling version `0.1.0` produced the same result, restored the Plugin to `enabled: true`, and retained its two Hook trust entries.
+
 ## Remaining evidence boundaries
 
 The following items remain open and must not be described as verified yet:
 
 - interactive installation through `/plugins` or the desktop Plugins Directory
-- uninstall verification that proves unrelated Hook configuration is byte-for-byte unchanged
 - a reviewed, publishable terminal recording of the verified flow
 
 Follow [demo.md](demo.md#recording-the-verified-flow) to produce the publication artifact without overstating the remaining installation and uninstall checks.

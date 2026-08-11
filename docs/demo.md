@@ -6,7 +6,7 @@ The repository contains a passing isolated Codex CLI installation test and a pas
 
 The visual at the top of both READMEs remains a conceptual workflow diagram, not a recording of actual execution. Interactive Hook trust, host-emitted lifecycle events, two Skill-authored handoffs, loop prevention, launch fallback, and clean-session verification have been observed as one host-driven run; a reviewed terminal recording has not yet been produced.
 
-Do not publish a terminal GIF as a real demo until it has been reproduced in a fresh disposable repository, reviewed frame by frame, and clearly separated from the still-open interactive installation and uninstall-isolation checklist items.
+Do not publish a terminal GIF as a real demo until it has been reproduced in a fresh disposable repository, reviewed frame by frame, and clearly separated from the still-open interactive installation checklist item.
 
 ## Host-driven end-to-end test
 

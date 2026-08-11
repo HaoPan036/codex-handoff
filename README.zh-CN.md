@@ -275,7 +275,7 @@ tests/
 ## Roadmap
 
 - 用经过审查、可重复录制的 15 至 25 秒 terminal demo 替换概念流程图。
-- 发布 `v0.1.0` 前，完成剩余的交互式安装和卸载隔离 checklist。
+- 发布 `v0.1.0` 前，完成剩余的 `/plugins` 交互式安装检查。
 - 加入 Windows Hook command packaging。
 - 收集外部使用反馈，再考虑扩展 handoff schema。
 

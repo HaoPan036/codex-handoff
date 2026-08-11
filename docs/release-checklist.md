@@ -46,7 +46,7 @@ Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex versi
 - [x] Confirm `docs/CODEX_HANDOFF.md` passes validation.
 - [x] Confirm another three compactions can trigger a second handoff.
 - [x] Confirm the clean-session helper either opens a verified session or returns the complete fallback prompt.
-- [ ] Confirm uninstall leaves unrelated Hook configuration unchanged.
+- [x] Confirm uninstall leaves unrelated Hook configuration unchanged.
 
 ## Publication
 

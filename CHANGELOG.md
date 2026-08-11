@@ -24,3 +24,4 @@ All notable changes are documented here.
 - Extended package validation and the release checklist to protect the bilingual homepage assets and status claims.
 - Documented the migration guard that prevents profile-installed v4 hooks and Plugin hooks from running together.
 - Recorded a model-backed macOS host test covering interactive Hook trust, six host-emitted compactions, two recurring handoffs, validated bounded history, continuation-loop prevention, launch fallback, and clean-session verification.
+- Verified that Plugin removal and reinstallation preserve all unrelated Codex configuration and restore the enabled Plugin with its Hook trust state.

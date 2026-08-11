@@ -275,7 +275,7 @@ tests/
 ## Roadmap
 
 - Replace the conceptual flow with a reviewed, reproducible 15-to-25-second terminal demo.
-- Complete the remaining interactive installation and uninstall-isolation checklist items before publishing `v0.1.0`.
+- Complete the remaining interactive `/plugins` installation check before publishing `v0.1.0`.
 - Add Windows hook command packaging.
 - Collect external usage feedback before expanding the handoff schema.
 
