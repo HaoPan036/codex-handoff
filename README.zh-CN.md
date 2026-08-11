@@ -224,7 +224,7 @@ bash install.sh 5
 
 ## 兼容性与限制
 
-- 当前版本为 `v0.1.0`。
+- 当前版本为 [`v0.1.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.1.0)。
 - 仓库 CI 在 macOS 和 Linux 上使用 Python 3.11、3.12 和 3.13 运行自动化测试。
 - 用户级安装脚本要求 Python 3.11 或更高版本。运行时辅助脚本只使用 Python 标准库。
 - 当前打包的 Hook 命令面向 macOS 和 Linux shell。
@@ -276,7 +276,7 @@ tests/
 
 ## Roadmap
 
-- 随 `v0.1.0` 发布经过审查的 terminal 录制和 release checklist。
+- 发布社区公告并收集安装反馈。
 - 加入 Windows Hook command packaging。
 - 收集外部使用反馈，再考虑扩展 handoff schema。
 

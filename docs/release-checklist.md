@@ -12,14 +12,14 @@
 
 ## Package
 
-- [ ] `.codex-plugin/plugin.json` version matches `pyproject.toml` and `CHANGELOG.md`.
-- [ ] Marketplace source points to `./plugins/codex-handoff`.
-- [ ] Plugin paths begin with `./` and remain inside the plugin root.
-- [ ] Hook command uses `${PLUGIN_ROOT}`.
-- [ ] README installation instructions match the release tag.
-- [ ] `README.md` and `README.zh-CN.md` make the same behavior and status claims.
-- [ ] README badges resolve and correspond to the actual workflow, license, Python requirement, and target platforms.
-- [ ] README local links and the terminal demo resolve from the repository root.
+- [x] `.codex-plugin/plugin.json` version matches `pyproject.toml` and `CHANGELOG.md`.
+- [x] Marketplace source points to `./plugins/codex-handoff`.
+- [x] Plugin paths begin with `./` and remain inside the plugin root.
+- [x] Hook command uses `${PLUGIN_ROOT}`.
+- [x] README installation instructions match the release tag.
+- [x] `README.md` and `README.zh-CN.md` make the same behavior and status claims.
+- [x] README badges resolve and correspond to the actual workflow, license, Python requirement, and target platforms.
+- [x] README local links and the terminal demo resolve from the repository root.
 - [x] Demo copy distinguishes the isolated smoke test, host-driven verification, and reviewed publication recording.
 
 ## Isolated CLI smoke test
@@ -50,9 +50,9 @@ Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex versi
 
 ## Publication
 
-- [ ] Create a signed or annotated `vX.Y.Z` tag.
-- [ ] Attach a source archive generated from the tag.
-- [ ] Publish release notes from `CHANGELOG.md`.
+- [x] Create the annotated `v0.1.0` tag at commit `30a8ce2`.
+- [x] Attach a source archive generated from the tag and its SHA-256 checksum.
+- [x] Publish release notes from `CHANGELOG.md`.
 - [x] Replace the conceptual flow with a reviewed terminal recording or keep the conceptual label explicit.
 - [ ] Create a community announcement.
 - [ ] Monitor Issues and Discussions for installation failures.

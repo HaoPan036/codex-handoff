@@ -224,7 +224,7 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 
 ## Compatibility and limitations
 
-- Current version: `v0.1.0`.
+- Current version: [`v0.1.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.1.0).
 - Automated tests run on macOS and Linux with Python 3.11, 3.12, and 3.13 in the repository CI workflow.
 - Python 3.11 or newer is required by the profile installer. Runtime helpers use only the Python standard library.
 - Packaged hook commands currently target macOS and Linux shells.
@@ -276,7 +276,7 @@ tests/
 
 ## Roadmap
 
-- Publish `v0.1.0` with the reviewed terminal recording and release checklist.
+- Publish a community announcement and collect installation feedback.
 - Add Windows hook command packaging.
 - Collect external usage feedback before expanding the handoff schema.
 
