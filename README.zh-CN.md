@@ -11,9 +11,9 @@
 
 [English README](README.md)
 
-![概念流程图，展示多次 context compaction 如何经过安全 Stop 边界和仓库证据，生成 CODEX_HANDOFF.md 并进入干净的新 Session](docs/assets/codex-handoff-flow.svg)
+![真实 Codex terminal demo，展示仓库状态校验、三次 context compaction、安全 Stop 交接和经过验证的 CODEX_HANDOFF.md](docs/assets/codex-handoff-demo.gif)
 
-<p align="center"><sub>概念流程图。CLI 安装和两轮完整的 host-driven 交接已在 macOS 验证；经过审查的 terminal 录制仍待完成。</sub></p>
+<p align="center"><sub>真实 Codex host 运行，出于隐私和节奏需要做了裁剪。三次 compaction 后在安全 Stop 发起交接，校验 handoff 并准备新 Session 启动提示词。</sub></p>
 
 | 安全时机 | 可验证状态 | 干净延续 |
 | --- | --- | --- |
@@ -262,7 +262,9 @@ plugins/codex-handoff/
     assets/CODEX_HANDOFF.template.md
     scripts/
 docs/
-  assets/codex-handoff-flow.svg
+  assets/
+    codex-handoff-demo.gif
+    codex-handoff-flow.svg
   demo.md
   smoke-test-2026-08-11.md
 scripts/
@@ -274,8 +276,7 @@ tests/
 
 ## Roadmap
 
-- 用经过审查、可重复录制的 15 至 25 秒 terminal demo 替换概念流程图。
-- 随 `v0.1.0` 发布经过审查的 release checklist 和 terminal 录制。
+- 随 `v0.1.0` 发布经过审查的 terminal 录制和 release checklist。
 - 加入 Windows Hook command packaging。
 - 收集外部使用反馈，再考虑扩展 handoff schema。
 

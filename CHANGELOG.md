@@ -26,6 +26,7 @@ All notable changes are documented here.
 - Recorded a model-backed macOS host test covering interactive Hook trust, six host-emitted compactions, two recurring handoffs, validated bounded history, continuation-loop prevention, launch fallback, and clean-session verification.
 - Verified that Plugin removal and reinstallation preserve all unrelated Codex configuration and restore the enabled Plugin with its Hook trust state.
 - Verified local Marketplace installation through the Codex `/plugins` interface and confirmed the installed version, enabled state, and retained Hook trust entries.
+- Replaced the README hero workflow illustration with a reviewed 18-second GIF from a real host-driven Codex run covering three compactions, safe `Stop`, explicit handoff invocation, validation, and clean-session fallback.
 
 ### Fixed
 

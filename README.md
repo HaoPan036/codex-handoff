@@ -11,9 +11,9 @@ Repeated context compaction can make it harder for Codex to know what is actuall
 
 [中文说明](README.zh-CN.md)
 
-![Conceptual flow showing repeated compaction leading through a safe Stop boundary and repository evidence to CODEX_HANDOFF.md and a clean session](docs/assets/codex-handoff-flow.svg)
+![Real Codex terminal demo showing verified repository state, three completed compactions, a safe Stop handoff, and a validated CODEX_HANDOFF.md](docs/assets/codex-handoff-demo.gif)
 
-<p align="center"><sub>Conceptual flow. CLI installation and two complete host-driven handoff cycles are verified on macOS; a reviewed terminal recording is still pending.</sub></p>
+<p align="center"><sub>Real Codex host run, cropped for privacy and pacing. Three completed compactions trigger one safe handoff; the handoff validates and leaves a clean-session prompt ready.</sub></p>
 
 | Safe timing | Verified state | Clean continuation |
 | --- | --- | --- |
@@ -262,7 +262,9 @@ plugins/codex-handoff/
     assets/CODEX_HANDOFF.template.md
     scripts/
 docs/
-  assets/codex-handoff-flow.svg
+  assets/
+    codex-handoff-demo.gif
+    codex-handoff-flow.svg
   demo.md
   smoke-test-2026-08-11.md
 scripts/
@@ -274,8 +276,7 @@ tests/
 
 ## Roadmap
 
-- Replace the conceptual flow with a reviewed, reproducible 15-to-25-second terminal demo.
-- Publish a reviewed release checklist and terminal recording with `v0.1.0`.
+- Publish `v0.1.0` with the reviewed terminal recording and release checklist.
 - Add Windows hook command packaging.
 - Collect external usage feedback before expanding the handoff schema.
 

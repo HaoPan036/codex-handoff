@@ -146,13 +146,23 @@ The Plugin was then removed with `codex plugin remove codex-handoff@codex-handof
 
 Finally, the Plugin was removed once more and installed through the Codex `/plugins` interface from the local `Codex Handoff` Marketplace. The UI reported `Installed Codex Handoff plugin`; a fresh CLI query confirmed version `0.1.0` with `installed: true`, `enabled: true`, and both Hook trust entries present.
 
-## Remaining evidence boundaries
+## Publication recording
 
-The following items remain open and must not be described as verified yet:
+The publication demo was recorded in a separate disposable repository with no remote, credentials, personal source, or proprietary content. A model-backed Codex CLI session verified the repository and tests, received three manual host `PostCompact` events, finished the next task at a normal `Stop`, and ran the automatically requested `$codex-handoff` continuation.
 
-- a reviewed, publishable terminal recording of the verified flow
+Observed final state:
 
-Follow [demo.md](demo.md#recording-the-verified-flow) to produce the publication artifact without overstating the remaining installation and uninstall checks.
+```text
+compact_count_since_handoff=0
+total_compactions=3
+pending_handoff=false
+handoff_requests=1
+continuation Stop action=continuation_stop
+handoff validation=passed
+history entries retained=1/5
+```
+
+The 18-second `docs/assets/codex-handoff-demo.gif` uses four original VS Code terminal captures from that run, cropped and held for readability. All unique frames were reviewed for sensitive information. The clean-session helper returned the documented complete manual fallback prompt because no compatible handler accepted the `codex://new` link in this recording run.
 
 ## Earlier v4 implementation
 

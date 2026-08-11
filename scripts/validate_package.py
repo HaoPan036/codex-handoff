@@ -23,6 +23,7 @@ OPENAI_YAML_PATH = (
 )
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 FLOW_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-flow.svg"
+DEMO_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-demo.gif"
 DEMO_PATH = ROOT / "docs" / "demo.md"
 SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-11.md"
 
@@ -35,6 +36,7 @@ REQUIRED_FILES = [
     ROOT / "CHANGELOG.md",
     ROOT / "AGENTS.md",
     FLOW_VISUAL_PATH,
+    DEMO_VISUAL_PATH,
     DEMO_PATH,
     SMOKE_EVIDENCE_PATH,
     MARKETPLACE_PATH,
@@ -225,6 +227,14 @@ def main() -> int:
         if not flow_visual.tag.endswith("svg"):
             errors.append("README flow visual root element must be `svg`.")
 
+    try:
+        demo_header = DEMO_VISUAL_PATH.read_bytes()[:6]
+    except OSError as exc:
+        errors.append(f"README terminal demo could not be read: {exc}")
+    else:
+        if demo_header not in {b"GIF87a", b"GIF89a"}:
+            errors.append("README terminal demo must be a valid GIF file.")
+
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_zh = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     readme_requirements = (
@@ -234,7 +244,7 @@ def main() -> int:
         "PLUGIN_DATA",
         "bash install.sh 3",
         "HaoPan036/codex-handoff",
-        "docs/assets/codex-handoff-flow.svg",
+        "docs/assets/codex-handoff-demo.gif",
         "docs/demo.md",
         "docs/smoke-test-2026-08-11.md",
     )

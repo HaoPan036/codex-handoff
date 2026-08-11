@@ -2,11 +2,11 @@
 
 ## Current demo status
 
-The repository contains a passing isolated Codex CLI installation test and a passing two-cycle, model-backed host-driven test. The exact environment, observed state, fallback behavior, clean-session verification, and remaining boundaries are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
+The repository contains a passing isolated Codex CLI installation test, a passing two-cycle model-backed host test, and a reviewed 18-second terminal demo from a separate host-driven run. The exact environment, observed state, fallback behavior, clean-session verification, and publication evidence are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
 
-The visual at the top of both READMEs remains a conceptual workflow diagram, not a recording of actual execution. Interactive Hook trust, host-emitted lifecycle events, two Skill-authored handoffs, loop prevention, launch fallback, and clean-session verification have been observed as one host-driven run; a reviewed terminal recording has not yet been produced.
+The visual at the top of both READMEs is a frame-edited recording of actual Codex terminal output. It shows repository verification, three host-emitted `PostCompact` events, the next task finishing normally, the safe `Stop` continuation, explicit `$codex-handoff` invocation, successful handoff validation, and the clean-session fallback prompt. Frames were cropped for privacy and pacing; execution output was not recreated or simulated.
 
-Do not publish a terminal GIF as a real demo until it has been reproduced in a fresh disposable repository and reviewed frame by frame for accuracy and sensitive information.
+The published GIF is 18 seconds, 980×602 pixels, and 477,503 bytes. Its four unique frames were reviewed for usernames, absolute personal paths, credentials, private repository names, and unrelated notification content. The only visible workspace path is the neutral `/private/tmp/codex-handoff-demo` fixture.
 
 ## Host-driven end-to-end test
 
@@ -44,3 +44,5 @@ Keep the final terminal demo between 15 and 25 seconds. Show only these moments:
 Crop unrelated logs. Replace the disposable workspace path with a neutral path such as `~/demo/codex-handoff-example`. Check every frame for usernames, absolute private paths, tokens, API keys, private repository names, and notification content.
 
 Save the reviewed recording as `docs/assets/codex-handoff-demo.gif`, then replace the conceptual visual in both READMEs and update their status text together.
+
+The v0.1.0 recording followed this procedure on 2026-08-11. Because macOS displays a privacy shield during automated desktop control, the final GIF uses four original VS Code terminal captures from the same uninterrupted Codex run rather than a continuous screen capture. The frames are held for readability and cropped to the relevant terminal region; the sequence and output remain the observed host execution.
