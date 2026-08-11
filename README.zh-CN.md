@@ -13,7 +13,7 @@
 
 ![概念流程图，展示多次 context compaction 如何经过安全 Stop 边界和仓库证据，生成 CODEX_HANDOFF.md 并进入干净的新 Session](docs/assets/codex-handoff-flow.svg)
 
-<p align="center"><sub>概念流程图。CLI 安装和已安装 Hook 的 lifecycle 已验证，host-driven 端到端录制仍待完成。</sub></p>
+<p align="center"><sub>概念流程图。CLI 安装和两轮完整的 host-driven 交接已在 macOS 验证；经过审查的 terminal 录制仍待完成。</sub></p>
 
 | 安全时机 | 可验证状态 | 干净延续 |
 | --- | --- | --- |
@@ -21,7 +21,7 @@
 
 ## 快速开始
 
-用户级安装脚本仍是最短的安装路径。Plugin 包已经通过隔离的 Codex CLI 安装和已安装 Hook lifecycle 冒烟测试。交互式 Hook trust、Skill 执行和打开干净 Session 仍需连起来完成一次 host-driven 测试。
+用户级安装脚本仍是最短的安装路径。Plugin 包已经通过隔离的 CLI 安装检查，以及真实 Codex host 测试。后者覆盖 Hook trust、两个阈值周期、Skill 执行、经过校验的 handoff 更新、防循环和干净 Session 续接。
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
@@ -161,9 +161,9 @@ bash install.sh 3
 
 ### Codex Plugin Marketplace
 
-仓库已经包含 Plugin 包和 Marketplace metadata。2026 年 8 月 11 日，Codex CLI `0.147.0-alpha.6.5` 分别从本地 checkout 和公开的 `HaoPan036/codex-handoff` shorthand 成功发现并安装了 `0.1.0`，两次测试均使用隔离的 `CODEX_HOME`。公开缓存中的 manifest、Hook、Skill 和 helper hash 与当前仓库一致。随后直接运行本地安装缓存中的 Hook，两个阈值周期、安全 `Stop`、`stop_hook_active` 防循环、周期计数重置、本地状态和审计日志均符合预期。
+仓库已经包含 Plugin 包和 Marketplace metadata。2026 年 8 月 11 日，Codex CLI `0.147.0-alpha.6.5` 分别从本地 checkout 和公开的 `HaoPan036/codex-handoff` shorthand 成功发现并安装了 `0.1.0`，两次测试均使用隔离的 `CODEX_HOME`。公开缓存中的 manifest、Hook、Skill 和 helper hash 与当前仓库一致。随后，一个由模型驱动的 Codex CLI Session 在一次性仓库中信任 bundled Hook 并完成了两个由 host 发出的阈值周期：6 次真实 `PostCompact` 产生 2 次安全 handoff continuation，每次请求后计数都归零，两次 handoff 文件都通过校验，而且 continuation 均正常结束、没有形成循环。第二轮的 `codex://new` 还打开了一个干净 Session，由它独立核对 handoff 和仓库状态。
 
-这份证据尚未覆盖交互式 Hook trust、Codex 发出 lifecycle event、Skill 写入交接文件，以及 `codex://new` 打开干净 Session 的完整 host-driven 流程。具体边界见 [smoke-test 记录](docs/smoke-test-2026-08-11.md)。剩余测试有记录以前，Plugin 路径仍按预发布能力处理。
+[smoke-test 记录](docs/smoke-test-2026-08-11.md) 给出了环境、精确状态变化、第一轮观察到的启动回退，以及仍未完成的发布边界。
 
 ```bash
 codex plugin marketplace add HaoPan036/codex-handoff
@@ -229,7 +229,7 @@ bash install.sh 5
 - 用户级安装脚本要求 Python 3.11 或更高版本。运行时辅助脚本只使用 Python 标准库。
 - 当前打包的 Hook 命令面向 macOS 和 Linux shell。
 - Codex Plugin 可用于 Codex CLI 和 ChatGPT 桌面端，IDE Extension 暂不支持。IDE Extension 可以使用用户级安装脚本。
-- 本地和公开 GitHub Marketplace 的发现与安装、已安装 Hook 的阈值行为、防循环、周期触发、状态、审计日志和打包后的 helper 已通过隔离冒烟测试。交互式 host trust、host 发出的事件、Skill 执行和打开新 Session 仍需完成一次端到端运行。相关材料见 [测试记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
+- 本地和公开 GitHub Marketplace 的发现与安装已通过隔离冒烟测试。交互式 Hook trust、host 发出的事件、两个重复阈值周期、由 Skill 编写 handoff、校验、防循环和干净 Session 续接也已通过由模型驱动的 macOS host 测试。相关材料见 [测试记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
 - `codex://new` 打开新 Session 的能力采用尽力而为策略。操作系统无法打开时，辅助脚本会输出完整的手动启动提示词。
 - 自动打开失败不会影响已经校验完成的 handoff 文件。
 
@@ -274,9 +274,9 @@ tests/
 
 ## Roadmap
 
-- 完成并记录剩余的 host-driven Codex Plugin 端到端测试。
-- host-driven 测试通过后，用可重复录制的 15 至 25 秒 terminal demo 替换概念流程图。
-- 完成端到端验证以后，再加入 Windows Hook command packaging。
+- 用经过审查、可重复录制的 15 至 25 秒 terminal demo 替换概念流程图。
+- 发布 `v0.1.0` 前，完成剩余的交互式安装和卸载隔离 checklist。
+- 加入 Windows Hook command packaging。
 - 收集外部使用反馈，再考虑扩展 handoff schema。
 
 ## License

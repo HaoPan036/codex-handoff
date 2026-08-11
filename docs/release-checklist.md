@@ -2,13 +2,13 @@
 
 ## Code and tests
 
-- [ ] `python3 -m unittest discover -s tests -v` passes.
-- [ ] `python3 scripts/validate_package.py` passes.
-- [ ] `Stop` emits valid JSON on every successful path.
-- [ ] The threshold triggers at the configured count.
-- [ ] A handoff request resets the per-handoff counter.
-- [ ] `stop_hook_active` does not create a continuation loop.
-- [ ] State migration is covered by tests.
+- [x] `python3 -m unittest discover -s tests -v` passes.
+- [x] `python3 scripts/validate_package.py` passes.
+- [x] `Stop` emits valid JSON on every successful path.
+- [x] The threshold triggers at the configured count.
+- [x] A handoff request resets the per-handoff counter.
+- [x] `stop_hook_active` does not create a continuation loop.
+- [x] State migration is covered by tests.
 
 ## Package
 
@@ -20,7 +20,7 @@
 - [ ] `README.md` and `README.zh-CN.md` make the same behavior and status claims.
 - [ ] README badges resolve and correspond to the actual workflow, license, Python requirement, and target platforms.
 - [ ] README local links and the conceptual flow image resolve from the repository root.
-- [ ] Demo copy distinguishes the verified isolated smoke test from the pending host-driven run.
+- [x] Demo copy distinguishes the verified isolated smoke test from the completed host-driven run and the remaining publication work.
 
 ## Isolated CLI smoke test
 
@@ -37,14 +37,15 @@ Evidence is recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
 
 Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex version, operating system, installation mode, threshold, and exact result.
 
-- [ ] Add the local marketplace with `codex plugin marketplace add ./`.
-- [ ] Confirm no earlier profile-installed v4 Hook remains enabled alongside the Plugin Hook.
+- [x] Add the local marketplace with `codex plugin marketplace add ./`.
+- [x] Confirm no earlier profile-installed v4 Hook remains enabled alongside the Plugin Hook.
 - [ ] Install the Plugin from `/plugins` or the desktop directory.
-- [ ] Review and trust the Hook.
-- [ ] Trigger three completed compactions in a disposable repository.
-- [ ] Confirm the active task finishes before the handoff continuation begins.
-- [ ] Confirm `docs/CODEX_HANDOFF.md` passes validation.
-- [ ] Confirm another three compactions can trigger a second handoff.
+- [x] Review and trust the Hook.
+- [x] Trigger three completed compactions in a disposable repository.
+- [x] Confirm the active task finishes before the handoff continuation begins.
+- [x] Confirm `docs/CODEX_HANDOFF.md` passes validation.
+- [x] Confirm another three compactions can trigger a second handoff.
+- [x] Confirm the clean-session helper either opens a verified session or returns the complete fallback prompt.
 - [ ] Confirm uninstall leaves unrelated Hook configuration unchanged.
 
 ## Publication

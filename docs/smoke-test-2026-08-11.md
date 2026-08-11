@@ -2,11 +2,11 @@
 
 ## Result
 
-**Partial Plugin smoke test passed.**
+**Plugin smoke test and two-cycle host-driven end-to-end test passed.**
 
 Codex CLI discovered and installed the `codex-handoff` marketplace package from both the local checkout and the public GitHub shorthand in separate isolated `CODEX_HOME` directories. The hook was then executed from the locally installed Plugin cache, not from the source checkout. Threshold timing, safe `Stop` scheduling, the continuation-loop guard, recurring handoffs, local state, and the audit log behaved as expected.
 
-This was not a complete host-driven end-to-end test. Codex did not emit the lifecycle events during a real long-running session, and the interactive Hook trust UI, Skill-authored handoff, and `codex://new` launch remain to be verified together.
+After the isolated test, the Plugin was installed in the authenticated user profile and exercised by a model-backed Codex CLI session. Codex emitted six real manual `PostCompact` events, scheduled two safe handoff continuations, invoked the Skill twice, validated the two-entry handoff history, prevented continuation loops, and opened a clean session that independently reconciled the second handoff with Git.
 
 ## Environment
 
@@ -15,12 +15,11 @@ This was not a complete host-driven end-to-end test. Codex did not emit the life
 - Codex CLI: `0.147.0-alpha.6.5`
 - Python: `3.14.5`
 - Package: `codex-handoff@codex-handoff`, version `0.1.0`
-- Installation targets: two isolated temporary `CODEX_HOME` directories
+- Installation targets: two isolated temporary `CODEX_HOME` directories, followed by the authenticated user profile for the host-driven run
 - Marketplace sources: local checkout and `HaoPan036/codex-handoff` at `main`
 - Network access: used only for the public GitHub shorthand test
 
-No user Plugin configuration, Hook trust state, repository, or existing v4 profile installation was changed.
-The isolated `CODEX_HOME` directories had no login state, and no credential or token was copied into them. This is why the smoke test stopped before starting a model-backed Codex session.
+The isolated `CODEX_HOME` directories had no login state, and no credential or token was copied into them. Those checks therefore stopped before starting a model-backed Codex session. The later host-driven run intentionally used the authenticated profile, after backing up and removing the earlier v4 profile Hook so that only the Plugin Hook was active.
 
 ## Marketplace and installation evidence
 
@@ -95,18 +94,63 @@ The helper scripts were run from the installed Plugin cache.
 
 Print-only mode deliberately avoided opening another application during this isolated test.
 
-## Evidence not claimed
+## Host-driven end-to-end evidence
+
+The host-driven test used the local Marketplace checkout, an authenticated Codex CLI session, a disposable Git repository with no remote or credentials, and `CODEX_HANDOFF_COMPACT_THRESHOLD=3`.
+
+Observed setup and trust flow:
+
+- The earlier profile-installed `codex-handoff-session-v4` configuration was backed up and uninstalled before the Plugin was enabled.
+- `codex plugin marketplace add ./` and `codex plugin add codex-handoff@codex-handoff --json` installed version `0.1.0` from the current checkout.
+- The bundled `PostCompact` and `Stop` hooks were reviewed and trusted through `/hooks`; unrelated hooks were not granted trust as part of this test.
+
+Observed first cycle:
+
+```text
+PostCompact 1..3      | count=1,2,3 | pending becomes true at 3
+Normal Stop           | action=handoff_requested_at_safe_stop | requests=1
+Continuation          | invokes $codex-handoff | counter resets to 0
+Handoff validator     | passes | history=1/5
+Continuation Stop     | action=continuation_stop | no loop
+```
+
+The first clean-session launch attempt returned `opened: false` after macOS reported `kLSExecutableIncorrectFormat`. The helper returned the complete manual startup prompt, demonstrating the documented non-critical fallback.
+
+Observed second cycle:
+
+```text
+PostCompact 4..6      | count=1,2,3 | pending becomes true at 6 total
+Normal Stop           | action=handoff_requested_at_safe_stop | requests=2
+Continuation          | invokes $codex-handoff | counter resets to 0
+Handoff validator     | passes | history=2/5
+Clean-session helper  | opened=true
+Continuation Stop     | action=continuation_stop | no loop
+```
+
+The clean session created by the second `codex://new` launch read the complete handoff, inspected all available Git history, checked branch, HEAD, staged, unstaged, and untracked state, ran `git diff --check` and `git fsck --no-dangling`, and reported no conflict with repository-verifiable handoff claims. It made no repository change.
+
+Final source-session state:
+
+```json
+{
+  "compact_count_since_handoff": 0,
+  "total_compactions": 6,
+  "pending_handoff": false,
+  "handoff_requests": 2
+}
+```
+
+The disposable fixture's `docs/CODEX_HANDOFF.md` was the only file changed by either continuation and retained two of five allowed history entries. Each completed handoff update was committed only after its Skill turn had stopped, outside the handoff continuation itself.
+
+## Remaining evidence boundaries
 
 The following items remain open and must not be described as verified yet:
 
 - interactive installation through `/plugins` or the desktop Plugins Directory
-- Hook review and trust through the host UI
-- lifecycle events emitted by Codex during a real long-running session
-- Skill creation or update of `docs/CODEX_HANDOFF.md` from that continuation
-- automatic `codex://new` handling by the operating system and Codex
-- a second host-driven handoff after another real threshold cycle
+- uninstall verification that proves unrelated Hook configuration is byte-for-byte unchanged
+- a reviewed, publishable terminal recording of the verified flow
 
-Follow [demo.md](demo.md#host-driven-end-to-end-test) to close the remaining gap.
+Follow [demo.md](demo.md#recording-the-verified-flow) to produce the publication artifact without overstating the remaining installation and uninstall checks.
 
 ## Earlier v4 implementation
 

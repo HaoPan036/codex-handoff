@@ -20,6 +20,7 @@ All notable changes are documented here.
 ### Changed
 
 - Reworked both README homepages around a concise value proposition, early profile-installer quick start, and a clearly labeled conceptual workflow visual.
-- Recorded the verified isolated CLI installation and installed-Hook lifecycle smoke test while keeping the remaining host-driven end-to-end boundary explicit.
+- Recorded the verified isolated CLI installation and installed-Hook lifecycle smoke test as the first stage of release verification.
 - Extended package validation and the release checklist to protect the bilingual homepage assets and status claims.
 - Documented the migration guard that prevents profile-installed v4 hooks and Plugin hooks from running together.
+- Recorded a model-backed macOS host test covering interactive Hook trust, six host-emitted compactions, two recurring handoffs, validated bounded history, continuation-loop prevention, launch fallback, and clean-session verification.

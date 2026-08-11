@@ -13,7 +13,7 @@ Repeated context compaction can make it harder for Codex to know what is actuall
 
 ![Conceptual flow showing repeated compaction leading through a safe Stop boundary and repository evidence to CODEX_HANDOFF.md and a clean session](docs/assets/codex-handoff-flow.svg)
 
-<p align="center"><sub>Conceptual flow. CLI installation and the installed-Hook lifecycle are verified; a host-driven end-to-end recording is still pending.</sub></p>
+<p align="center"><sub>Conceptual flow. CLI installation and two complete host-driven handoff cycles are verified on macOS; a reviewed terminal recording is still pending.</sub></p>
 
 | Safe timing | Verified state | Clean continuation |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ Repeated context compaction can make it harder for Codex to know what is actuall
 
 ## Quick start
 
-The profile installer remains the shortest setup path. The Plugin package has also passed an isolated Codex CLI installation and installed-Hook lifecycle smoke test; interactive host trust, Skill execution, and clean-session opening still need one end-to-end run.
+The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and a real Codex host test covering Hook trust, two threshold cycles, Skill execution, validated handoff updates, loop prevention, and clean-session continuation.
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
@@ -161,9 +161,9 @@ Restart Codex and review the exact hook definition after installation.
 
 ### Codex Plugin Marketplace
 
-The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. The locally installed Hook passed two threshold cycles, safe `Stop` scheduling, `stop_hook_active` loop prevention, recurring counter reset, local state, and audit-log checks.
+The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. On the second cycle, `codex://new` opened a clean session that independently verified the handoff and repository state.
 
-This evidence does not cover interactive Hook trust, Codex emitting the lifecycle events, the Skill writing the handoff, or `codex://new` opening a clean session as one host-driven flow. See the [smoke-test evidence](docs/smoke-test-2026-08-11.md) for the exact boundary. Treat the Plugin route as pre-release until the remaining host-driven test is recorded.
+See the [smoke-test evidence](docs/smoke-test-2026-08-11.md) for the environment, exact state transitions, launch fallback observed during the first cycle, and remaining publication boundaries.
 
 ```bash
 codex plugin marketplace add HaoPan036/codex-handoff
@@ -229,7 +229,7 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 - Python 3.11 or newer is required by the profile installer. Runtime helpers use only the Python standard library.
 - Packaged hook commands currently target macOS and Linux shells.
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
-- Local and public GitHub Marketplace discovery and installation, installed-Hook threshold behavior, loop prevention, recurrence, state, audit logging, and packaged helpers have passed isolated smoke tests. Interactive host trust, host-emitted events, Skill execution, and clean-session opening are still pending as one end-to-end run. See [the evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
+- Local and public GitHub Marketplace discovery and installation have passed isolated smoke tests. Interactive Hook trust, host-emitted events, two recurring threshold cycles, Skill-authored handoffs, validation, loop prevention, and clean-session continuation have also passed a model-backed macOS host test. See [the evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
 - The `codex://new` clean-session opener is best effort. If the operating system cannot open it, the helper prints the complete startup prompt for manual use.
 - A validated handoff remains useful when automatic session opening is unavailable.
 
@@ -274,9 +274,9 @@ tests/
 
 ## Roadmap
 
-- Complete and record the remaining host-driven Codex Plugin end-to-end test.
-- Replace the conceptual flow with a reproducible 15-to-25-second terminal demo after the host-driven test passes.
-- Add Windows hook command packaging after end-to-end testing.
+- Replace the conceptual flow with a reviewed, reproducible 15-to-25-second terminal demo.
+- Complete the remaining interactive installation and uninstall-isolation checklist items before publishing `v0.1.0`.
+- Add Windows hook command packaging.
 - Collect external usage feedback before expanding the handoff schema.
 
 ## License

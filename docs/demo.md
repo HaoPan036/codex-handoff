@@ -2,11 +2,11 @@
 
 ## Current demo status
 
-The repository contains a passing isolated Codex CLI installation and installed-Hook lifecycle smoke test. The exact commands, environment, observed state, and unverified boundary are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
+The repository contains a passing isolated Codex CLI installation test and a passing two-cycle, model-backed host-driven test. The exact environment, observed state, fallback behavior, clean-session verification, and remaining boundaries are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
 
-The visual at the top of both READMEs remains a conceptual workflow diagram. It is not a recording of actual execution. Interactive Hook trust, host-emitted lifecycle events, Skill-authored handoff creation, and clean-session opening have not yet been recorded as one end-to-end run.
+The visual at the top of both READMEs remains a conceptual workflow diagram, not a recording of actual execution. Interactive Hook trust, host-emitted lifecycle events, two Skill-authored handoffs, loop prevention, launch fallback, and clean-session verification have been observed as one host-driven run; a reviewed terminal recording has not yet been produced.
 
-Do not publish a terminal GIF as a real demo until every relevant item in the [manual smoke-test checklist](release-checklist.md#manual-smoke-test) has been completed in a disposable repository.
+Do not publish a terminal GIF as a real demo until it has been reproduced in a fresh disposable repository, reviewed frame by frame, and clearly separated from the still-open interactive installation and uninstall-isolation checklist items.
 
 ## Host-driven end-to-end test
 
@@ -31,7 +31,7 @@ Use a disposable repository containing no credentials, private remotes, personal
 
 Record the Codex version, operating system, installation mode, threshold, and exact result in the release notes or a dedicated smoke-test record.
 
-## Recording plan after the smoke test passes
+## Recording the verified flow
 
 Keep the final terminal demo between 15 and 25 seconds. Show only these moments:
 
