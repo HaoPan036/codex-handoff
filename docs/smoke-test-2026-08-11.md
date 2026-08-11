@@ -144,11 +144,12 @@ The disposable fixture's `docs/CODEX_HANDOFF.md` was the only file changed by ei
 
 The Plugin was then removed with `codex plugin remove codex-handoff@codex-handoff --json`. A structural comparison of `config.toml` before and after removal, excluding only the Plugin's own install and trust entries, found every unrelated setting unchanged. Reinstalling version `0.1.0` produced the same result, restored the Plugin to `enabled: true`, and retained its two Hook trust entries.
 
+Finally, the Plugin was removed once more and installed through the Codex `/plugins` interface from the local `Codex Handoff` Marketplace. The UI reported `Installed Codex Handoff plugin`; a fresh CLI query confirmed version `0.1.0` with `installed: true`, `enabled: true`, and both Hook trust entries present.
+
 ## Remaining evidence boundaries
 
 The following items remain open and must not be described as verified yet:
 
-- interactive installation through `/plugins` or the desktop Plugins Directory
 - a reviewed, publishable terminal recording of the verified flow
 
 Follow [demo.md](demo.md#recording-the-verified-flow) to produce the publication artifact without overstating the remaining installation and uninstall checks.

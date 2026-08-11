@@ -39,7 +39,7 @@ Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex versi
 
 - [x] Add the local marketplace with `codex plugin marketplace add ./`.
 - [x] Confirm no earlier profile-installed v4 Hook remains enabled alongside the Plugin Hook.
-- [ ] Install the Plugin from `/plugins` or the desktop directory.
+- [x] Install the Plugin from `/plugins` or the desktop directory.
 - [x] Review and trust the Hook.
 - [x] Trigger three completed compactions in a disposable repository.
 - [x] Confirm the active task finishes before the handoff continuation begins.
