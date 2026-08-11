@@ -1,0 +1,69 @@
+# Troubleshooting
+
+## The Skill does not appear
+
+Start a new Codex session after installation. Confirm that one of these paths exists:
+
+```text
+Plugin: plugins/codex-handoff/skills/codex-handoff/SKILL.md
+Profile: ~/.agents/skills/codex-handoff/SKILL.md
+```
+
+For profile installation, rerun `bash install.sh 3` and inspect its printed paths.
+
+## Compact events are not counted
+
+Review and trust the Hook in Codex. Plugin installation does not imply Hook trust.
+
+Profile installation can be inspected in `~/.codex/config.toml`. It should contain `PostCompact` and `Stop` command hooks that reference `codex_handoff_hook.py`.
+
+Inspect the local audit log:
+
+```bash
+tail -n 50 ~/.codex/codex-handoff/events.jsonl
+```
+
+Plugin installations store the log under the host-provided `PLUGIN_DATA` directory.
+
+## The handoff triggers only once
+
+Versions before `0.1.0` could retain a lifetime counter and never establish a new threshold window. Reinstall `0.1.0` or newer. The current state uses `compact_count_since_handoff` and resets it after every handoff request.
+
+## Stop Hook reports invalid output
+
+Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hook emits `{"continue": true}` on every successful non-handoff `Stop` path.
+
+## A clean session does not open
+
+Run the helper manually:
+
+```bash
+python3 ~/.agents/skills/codex-handoff/scripts/open_new_session.py \
+  /absolute/path/to/workspace docs/CODEX_HANDOFF.md --json
+```
+
+When `opened` is false, copy `startup_prompt` into a new Codex session. The handoff file remains valid.
+
+## The wrong threshold is used
+
+Profile installation embeds the threshold into the Hook command. Rerun:
+
+```bash
+bash install.sh 5
+```
+
+Plugin installation reads `~/.codex/codex-handoff.json` unless an environment variable overrides it:
+
+```json
+{
+  "compact_threshold": 5
+}
+```
+
+## Remove everything
+
+```bash
+bash uninstall.sh --purge-state
+```
+
+The uninstaller backs up `~/.codex/config.toml` before removing its Hook entries.

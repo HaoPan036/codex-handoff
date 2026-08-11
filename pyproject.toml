@@ -1,0 +1,29 @@
+[project]
+name = "codex-handoff"
+version = "0.1.0"
+description = "Evidence-backed handoffs for long-running Codex sessions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Hao Pan" }]
+keywords = ["codex", "handoff", "agent-skill", "context-compaction"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/haopan036/codex-handoff"
+Repository = "https://github.com/haopan036/codex-handoff"
+Issues = "https://github.com/haopan036/codex-handoff/issues"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

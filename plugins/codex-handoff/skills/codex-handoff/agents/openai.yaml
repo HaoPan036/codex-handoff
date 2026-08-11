@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Handoff"
+  short_description: "Save verified project state and continue in a clean Codex session"
+  default_prompt: "Create or update docs/CODEX_HANDOFF.md from verified repository evidence, validate it, and prepare a clean continuation."
+
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,57 @@
+name: Bug report
+description: Report incorrect lifecycle, installation, or handoff behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remove credentials, private repository details, and transcript content before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation mode
+      options:
+        - Plugin marketplace
+        - Profile installer
+        - Manual
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Codex surface, and Python version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest safe sequence that reproduces the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: sanitized_logs
+    attributes:
+      label: Sanitized logs
+      description: Include only relevant records from events.jsonl or installer output

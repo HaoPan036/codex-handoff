@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a focused improvement to the handoff workflow
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the concrete failure or maintenance cost
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Lifecycle and safety impact
+      description: Explain how the proposal preserves the invariants in docs/design.md
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

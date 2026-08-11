@@ -1,0 +1,36 @@
+{
+  "name": "codex-handoff",
+  "version": "0.1.0",
+  "description": "Create evidence-backed project handoffs after repeated Codex context compactions.",
+  "author": {
+    "name": "Hao Pan",
+    "url": "https://github.com/haopan036"
+  },
+  "homepage": "https://github.com/haopan036/codex-handoff",
+  "repository": "https://github.com/haopan036/codex-handoff",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "handoff",
+    "context-compaction",
+    "developer-tools",
+    "agent-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Handoff",
+    "shortDescription": "Continue long Codex work in a clean session",
+    "longDescription": "Count completed context compactions, wait for a safe turn boundary, then create a verified repository handoff and continue in a clean Codex session.",
+    "developerName": "Hao Pan",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/haopan036/codex-handoff",
+    "defaultPrompt": [
+      "Use Codex Handoff to prepare a verified handoff for this repository.",
+      "Create a handoff only and do not open a new Codex session."
+    ]
+  }
+}

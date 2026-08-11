@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostCompact": [
+      {
+        "matcher": "^(manual|auto)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Recording completed compaction"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking Codex handoff threshold"
+          }
+        ]
+      }
+    ]
+  }
+}
