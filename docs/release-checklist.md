@@ -17,10 +17,28 @@
 - [ ] Plugin paths begin with `./` and remain inside the plugin root.
 - [ ] Hook command uses `${PLUGIN_ROOT}`.
 - [ ] README installation instructions match the release tag.
+- [ ] `README.md` and `README.zh-CN.md` make the same behavior and status claims.
+- [ ] README badges resolve and correspond to the actual workflow, license, Python requirement, and target platforms.
+- [ ] README local links and the conceptual flow image resolve from the repository root.
+- [ ] Demo copy distinguishes the verified isolated smoke test from the pending host-driven run.
+
+## Isolated CLI smoke test
+
+Evidence is recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
+
+- [x] Add the local Marketplace in an isolated `CODEX_HOME`.
+- [x] Add and install the public `HaoPan036/codex-handoff` Marketplace from `main` in a second isolated `CODEX_HOME`.
+- [x] Discover and install `codex-handoff@codex-handoff` version `0.1.0`.
+- [x] Execute the Hook from the installed Plugin cache for two threshold cycles.
+- [x] Confirm safe `Stop`, `stop_hook_active`, recurring reset, state, and audit behavior.
+- [x] Run the installed snapshot, handoff validator, and clean-session prompt helpers.
 
 ## Manual smoke test
 
+Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex version, operating system, installation mode, threshold, and exact result.
+
 - [ ] Add the local marketplace with `codex plugin marketplace add ./`.
+- [ ] Confirm no earlier profile-installed v4 Hook remains enabled alongside the Plugin Hook.
 - [ ] Install the Plugin from `/plugins` or the desktop directory.
 - [ ] Review and trust the Hook.
 - [ ] Trigger three completed compactions in a disposable repository.
@@ -34,5 +52,6 @@
 - [ ] Create a signed or annotated `vX.Y.Z` tag.
 - [ ] Attach a source archive generated from the tag.
 - [ ] Publish release notes from `CHANGELOG.md`.
-- [ ] Create a minimal demonstration and community announcement.
+- [ ] Replace the conceptual flow with a reviewed terminal recording or keep the conceptual label explicit.
+- [ ] Create a community announcement.
 - [ ] Monitor Issues and Discussions for installation failures.

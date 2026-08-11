@@ -29,6 +29,18 @@ Plugin installations store the log under the host-provided `PLUGIN_DATA` directo
 
 Versions before `0.1.0` could retain a lifetime counter and never establish a new threshold window. Reinstall `0.1.0` or newer. The current state uses `compact_count_since_handoff` and resets it after every handoff request.
 
+## The handoff runs twice after Plugin installation
+
+Codex loads matching hooks from every active source. Installing the Plugin does not disable hooks left in `~/.codex/config.toml` by an earlier profile-installed `codex-handoff-session` v4.
+
+Open `/hooks` and check whether both the old profile Hook and the Plugin Hook are enabled. To migrate, run the current checkout's uninstaller before enabling the Plugin:
+
+```bash
+bash uninstall.sh
+```
+
+This removes the current and legacy profile Skill and Hook entries while retaining local counters and logs. It does not remove a separately installed Plugin. Restart Codex, review `/hooks` again, and trust only the Hook set you intend to use.
+
 ## Stop Hook reports invalid output
 
 Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hook emits `{"continue": true}` on every successful non-handoff `Stop` path.

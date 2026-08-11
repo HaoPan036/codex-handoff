@@ -8,6 +8,7 @@ import py_compile
 import re
 import sys
 import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,9 @@ OPENAI_YAML_PATH = (
     PLUGIN_ROOT / "skills" / "codex-handoff" / "agents" / "openai.yaml"
 )
 PYPROJECT_PATH = ROOT / "pyproject.toml"
+FLOW_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-flow.svg"
+DEMO_PATH = ROOT / "docs" / "demo.md"
+SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-11.md"
 
 REQUIRED_FILES = [
     ROOT / "README.md",
@@ -30,6 +34,9 @@ REQUIRED_FILES = [
     ROOT / "SECURITY.md",
     ROOT / "CHANGELOG.md",
     ROOT / "AGENTS.md",
+    FLOW_VISUAL_PATH,
+    DEMO_PATH,
+    SMOKE_EVIDENCE_PATH,
     MARKETPLACE_PATH,
     MANIFEST_PATH,
     HOOKS_PATH,
@@ -210,12 +217,31 @@ def main() -> int:
     if not re.search(r"allow_implicit_invocation:\s*false", openai_yaml):
         errors.append("Skill must disable implicit invocation.")
 
+    try:
+        flow_visual = ET.parse(FLOW_VISUAL_PATH).getroot()
+    except (ET.ParseError, OSError) as exc:
+        errors.append(f"README flow visual is not valid XML: {exc}")
+    else:
+        if not flow_visual.tag.endswith("svg"):
+            errors.append("README flow visual root element must be `svg`.")
+
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_zh = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    for required in ("$codex-handoff", "PostCompact", "Stop", "PLUGIN_DATA"):
+    readme_requirements = (
+        "$codex-handoff",
+        "PostCompact",
+        "Stop",
+        "PLUGIN_DATA",
+        "bash install.sh 3",
+        "HaoPan036/codex-handoff",
+        "docs/assets/codex-handoff-flow.svg",
+        "docs/demo.md",
+        "docs/smoke-test-2026-08-11.md",
+    )
+    for required in readme_requirements:
         if required not in readme:
             errors.append(f"README.md is missing required term: {required}")
-    for required in ("$codex-handoff", "PostCompact", "Stop", "PLUGIN_DATA"):
+    for required in readme_requirements:
         if required not in readme_zh:
             errors.append(f"README.zh-CN.md is missing required term: {required}")
 
