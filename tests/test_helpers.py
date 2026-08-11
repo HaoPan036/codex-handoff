@@ -42,6 +42,7 @@ def valid_handoff(history_count: int = 1) -> str:
 - Next task: run the next bounded verification task
 """
         )
+    history_text = "\n".join(history)
     return f"""# Codex Handoff
 
 Updated: `2026-08-11T12:00:00+08:00`
@@ -143,7 +144,7 @@ Run `python3 scripts/validate_package.py`, inspect every reported error, and fin
 
 ## 11. Handoff history
 
-{"\n".join(history)}
+{history_text}
 """
 
 
