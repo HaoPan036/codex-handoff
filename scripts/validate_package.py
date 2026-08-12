@@ -163,7 +163,7 @@ def main() -> int:
 
     plugin_entries = marketplace.get("plugins")
     if not isinstance(plugin_entries, list) or len(plugin_entries) != 1:
-        errors.append("Marketplace must expose exactly one plugin in v0.1.0.")
+        errors.append("Marketplace must expose exactly one plugin.")
     else:
         entry = plugin_entries[0]
         if not isinstance(entry, dict):

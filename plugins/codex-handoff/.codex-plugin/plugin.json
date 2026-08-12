@@ -1,6 +1,6 @@
 {
   "name": "codex-handoff",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create evidence-backed project handoffs after repeated Codex context compactions.",
   "author": {
     "name": "Hao Pan",

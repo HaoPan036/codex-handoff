@@ -1,6 +1,6 @@
 [project]
 name = "codex-handoff"
-version = "0.1.0"
+version = "0.1.1"
 description = "Evidence-backed handoffs for long-running Codex sessions"
 readme = "README.md"
 requires-python = ">=3.11"
