@@ -92,6 +92,17 @@ trust_level = "trusted"
             self.assertEqual(config_text.count("# >>> codex-handoff hooks >>>"), 1)
             self.assertNotIn("codex-handoff-session hooks", config_text)
             self.assertIn("CODEX_HANDOFF_COMPACT_THRESHOLD=2", config_text)
+            self.assertIn("CODEX_HANDOFF_SKILL_PATH=", config_text)
+            self.assertIn(
+                str(
+                    home
+                    / ".agents"
+                    / "skills"
+                    / "codex-handoff"
+                    / "SKILL.md"
+                ),
+                config_text,
+            )
             self.assertIn('[projects."/tmp/repo"]', config_text)
             self.assertIn('trust_level = "trusted"', config_text)
 

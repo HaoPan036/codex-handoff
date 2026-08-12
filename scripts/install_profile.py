@@ -100,6 +100,7 @@ def remove_handoff_hook_groups(text: str) -> str:
 def build_config(
     original: str,
     hook_path: Path,
+    skill_path: Path,
     threshold: int,
     python_executable: Path,
 ) -> str:
@@ -109,6 +110,7 @@ def build_config(
 
     command = (
         f"CODEX_HANDOFF_COMPACT_THRESHOLD={threshold} "
+        f"CODEX_HANDOFF_SKILL_PATH={shlex.quote(str(skill_path))} "
         f"{shlex.quote(str(python_executable))} {shlex.quote(str(hook_path))}"
     )
     quoted_command = json.dumps(command)
@@ -252,6 +254,7 @@ def main() -> int:
         candidate = build_config(
             original=original,
             hook_path=hook_target,
+            skill_path=skill_target / "SKILL.md",
             threshold=args.threshold,
             python_executable=Path(sys.executable).resolve(),
         )

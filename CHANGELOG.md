@@ -2,6 +2,18 @@
 
 All notable changes are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Bound automatic handoff continuations to the current installation's exact `codex-handoff/SKILL.md` path and SHA-256, with a verifier receipt and clear failure instead of silently substituting another `handoff` Skill.
+- Pinned profile-installed Hook commands to the exact installed Skill path while retaining explicit-only manual invocation.
+
+### Changed
+
+- Corrected the 2026-08-11 smoke-test claim: its continuation text and generated artifacts did not by themselves prove which Skill file the Host loaded.
+- Added competing-Skill, unavailable-Skill, recurring identity, loop-prevention, profile-path, audit-provenance, and real Host regression evidence.
+
 ## 0.1.0, 2026-08-11
 
 ### Added

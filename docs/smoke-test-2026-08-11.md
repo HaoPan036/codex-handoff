@@ -6,7 +6,11 @@
 
 Codex CLI discovered and installed the `codex-handoff` marketplace package from both the local checkout and the public GitHub shorthand in separate isolated `CODEX_HOME` directories. The hook was then executed from the locally installed Plugin cache, not from the source checkout. Threshold timing, safe `Stop` scheduling, the continuation-loop guard, recurring handoffs, local state, and the audit log behaved as expected.
 
-After the isolated test, the Plugin was installed in the authenticated user profile and exercised by a model-backed Codex CLI session. Codex emitted six real manual `PostCompact` events, scheduled two safe handoff continuations, invoked the Skill twice, validated the two-entry handoff history, prevented continuation loops, and opened a clean session that independently reconciled the second handoff with Git.
+After the isolated test, the Plugin was installed in the authenticated user profile and exercised by a model-backed Codex CLI session. Codex emitted six real manual `PostCompact` events, scheduled two safe handoff continuations whose prompt text named `$codex-handoff`, produced and validated a two-entry handoff history, prevented continuation loops, and opened a clean session that independently reconciled the second handoff with Git.
+
+## Identity evidence correction, 2026-08-12
+
+This run captured Hook continuation text containing `$codex-handoff` and the resulting handoff artifacts, but it did not capture the exact `SKILL.md` file read by the Host or an independent identity receipt. Those observations prove the lifecycle and artifact results; they do **not** prove that the Host loaded `plugins/codex-handoff/skills/codex-handoff/SKILL.md`, and they could not exclude silent substitution by another `handoff` Skill. The wording below is narrowed accordingly. See [the 2026-08-12 identity regression evidence](smoke-test-2026-08-12.md) for path, SHA-256, verifier, competing-Skill, and Host-trace proof.
 
 ## Environment
 
@@ -60,7 +64,7 @@ First cycle:
 PostCompact 1 recorded | count=1 | pending=false | stdout=empty
 PostCompact 2 recorded | count=2 | pending=false | stdout=empty
 PostCompact 3 recorded | count=3 | pending=true  | stdout=empty
-Stop                  | decision=block | invokes $codex-handoff | safe boundary confirmed
+Stop                  | decision=block | reason contains $codex-handoff | safe boundary confirmed
 ```
 
 Second cycle:
@@ -68,7 +72,7 @@ Second cycle:
 ```text
 PostCompact 4..6      | count reaches 3 again | pending=true
 Stop, hook active     | continue=true | pending remains true
-Next normal Stop      | decision=block | invokes $codex-handoff
+Next normal Stop      | decision=block | reason contains $codex-handoff
 ```
 
 Final state:
@@ -109,7 +113,7 @@ Observed first cycle:
 ```text
 PostCompact 1..3      | count=1,2,3 | pending becomes true at 3
 Normal Stop           | action=handoff_requested_at_safe_stop | requests=1
-Continuation          | invokes $codex-handoff | counter resets to 0
+Continuation          | prompt names $codex-handoff; loaded identity not captured | counter resets to 0
 Handoff validator     | passes | history=1/5
 Continuation Stop     | action=continuation_stop | no loop
 ```
@@ -121,7 +125,7 @@ Observed second cycle:
 ```text
 PostCompact 4..6      | count=1,2,3 | pending becomes true at 6 total
 Normal Stop           | action=handoff_requested_at_safe_stop | requests=2
-Continuation          | invokes $codex-handoff | counter resets to 0
+Continuation          | prompt names $codex-handoff; loaded identity not captured | counter resets to 0
 Handoff validator     | passes | history=2/5
 Clean-session helper  | opened=true
 Continuation Stop     | action=continuation_stop | no loop
@@ -148,7 +152,7 @@ Finally, the Plugin was removed once more and installed through the Codex `/plug
 
 ## Publication recording
 
-The publication demo was recorded in a separate disposable repository with no remote, credentials, personal source, or proprietary content. A model-backed Codex CLI session verified the repository and tests, received three manual host `PostCompact` events, finished the next task at a normal `Stop`, and ran the automatically requested `$codex-handoff` continuation.
+The publication demo was recorded in a separate disposable repository with no remote, credentials, personal source, or proprietary content. A model-backed Codex CLI session verified the repository and tests, received three manual host `PostCompact` events, finished the next task at a normal `Stop`, and ran the resulting automatic handoff continuation. Its prompt named `$codex-handoff`; the recording did not establish the exact loaded Skill identity.
 
 Observed final state:
 

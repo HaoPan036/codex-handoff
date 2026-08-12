@@ -26,6 +26,14 @@ FLOW_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-flow.svg"
 DEMO_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-demo.gif"
 DEMO_PATH = ROOT / "docs" / "demo.md"
 SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-11.md"
+IDENTITY_SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-12.md"
+IDENTITY_HELPER_PATH = (
+    PLUGIN_ROOT
+    / "skills"
+    / "codex-handoff"
+    / "scripts"
+    / "verify_identity.py"
+)
 
 REQUIRED_FILES = [
     ROOT / "README.md",
@@ -39,6 +47,7 @@ REQUIRED_FILES = [
     DEMO_VISUAL_PATH,
     DEMO_PATH,
     SMOKE_EVIDENCE_PATH,
+    IDENTITY_SMOKE_EVIDENCE_PATH,
     MARKETPLACE_PATH,
     MANIFEST_PATH,
     HOOKS_PATH,
@@ -65,6 +74,7 @@ REQUIRED_FILES = [
     / "codex-handoff"
     / "scripts"
     / "open_new_session.py",
+    IDENTITY_HELPER_PATH,
     ROOT / "scripts" / "install_profile.py",
     ROOT / "scripts" / "uninstall_profile.py",
 ]
@@ -247,6 +257,7 @@ def main() -> int:
         "docs/assets/codex-handoff-demo.gif",
         "docs/demo.md",
         "docs/smoke-test-2026-08-11.md",
+        "docs/smoke-test-2026-08-12.md",
     )
     for required in readme_requirements:
         if required not in readme:

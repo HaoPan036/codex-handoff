@@ -21,7 +21,9 @@ A completed `PostCompact` increments a per-session counter. Reaching the thresho
 
 ### Stop
 
-At a later `Stop`, the hook checks the pending flag. When a handoff is pending and `stop_hook_active` is false, it returns `decision: block` with a continuation prompt that explicitly invokes `$codex-handoff`.
+At a later `Stop`, the hook checks the pending flag. When a handoff is pending and `stop_hook_active` is false, it resolves the exact workflow file from the official `PLUGIN_ROOT` (Plugin mode) or installer-provided `CODEX_HANDOFF_SKILL_PATH` (profile mode). It verifies the frontmatter name and verifier file, hashes the Skill, and returns `decision: block` with a structured dispatch record containing the exact path and SHA-256.
+
+The continuation must run the bundled identity verifier with that expected hash before it reads the exact Skill file. It is explicitly forbidden from using Skill discovery, filesystem search, or a similarly named fallback. A missing, unreadable, renamed, or unverifiable workflow produces `CODEX_HANDOFF_SKILL_UNAVAILABLE`; the per-handoff compact count is preserved and no handoff request is recorded.
 
 Every other successful `Stop` path returns valid JSON with `continue: true`. This includes normal stops, repeated stops, missing session identifiers, and continuation stops.
 
@@ -42,6 +44,12 @@ PENDING
 
 HANDOFF_REQUESTED
   reset count to 0 -> IDLE
+
+PENDING
+  Stop with unavailable exact Skill -> IDENTITY_FAILURE
+
+IDENTITY_FAILURE
+  preserve count; next PostCompact -> PENDING for retry
 ```
 
 `total_compactions` remains monotonic for local audit. `compact_count_since_handoff` resets after a handoff request so the threshold can recur.
@@ -71,6 +79,12 @@ State writes use a lock and atomic replacement. Records older than 30 days are p
 The hook receives lifecycle metadata through standard input. It does not read the transcript path, inspect the repository, or call external services. Its output can only record a completed compact or request a continuation at `Stop`.
 
 The Skill has broader read access because it must inspect repository evidence. Its write boundary is restricted to `docs/CODEX_HANDOFF.md` during preparation.
+
+## Skill identity boundary
+
+Manual `$codex-handoff` remains an explicit Host Skill invocation and `allow_implicit_invocation` remains `false`. Automatic dispatch does not depend on implicit selection. The Hook uses only a host- or installer-provided root of trust, one fixed relative path, an exact frontmatter name, and a content hash. It never enumerates other Skill directories.
+
+Official Codex documentation specifies that a blocking `Stop` reason becomes a continuation prompt and that Plugin hooks receive `PLUGIN_ROOT`; it does not specify a dedicated Hook-to-Skill dispatch API or guarantee that a `$name` embedded in a Hook reason follows the same structured resolver path as a composer mention. The deterministic file identity protocol therefore treats that behavior as unspecified rather than relying on it.
 
 ## Evidence hierarchy
 

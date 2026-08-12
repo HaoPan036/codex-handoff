@@ -29,6 +29,16 @@ When the user requests `handoff only`, complete steps 1 through 3 and do not ope
 
 ## Workflow
 
+### 0. Verify workflow identity
+
+Run the identity helper located beside this `SKILL.md` before gathering repository evidence:
+
+```bash
+python3 <skill-directory>/scripts/verify_identity.py <skill-directory>/SKILL.md
+```
+
+Require a successful JSON receipt whose `name` is exactly `codex-handoff` and retain the receipt in the host trace or final report as workflow provenance. Do not add the receipt or a provenance marker to `docs/CODEX_HANDOFF.md`. If an automatic dispatch supplied an expected SHA-256, pass it with `--expect-sha256` and stop with `CODEX_HANDOFF_SKILL_IDENTITY_ERROR` if verification fails. Never substitute another handoff Skill.
+
 ### 1. Resolve the workspace
 
 Use the current working directory. When it belongs to a Git repository, resolve the repository root:

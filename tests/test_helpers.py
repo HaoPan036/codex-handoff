@@ -12,6 +12,7 @@ SKILL = ROOT / "plugins" / "codex-handoff" / "skills" / "codex-handoff"
 COLLECT = SKILL / "scripts" / "collect_snapshot.py"
 VALIDATE = SKILL / "scripts" / "validate_handoff.py"
 OPEN = SKILL / "scripts" / "open_new_session.py"
+VERIFY_IDENTITY = SKILL / "scripts" / "verify_identity.py"
 TEMPLATE = SKILL / "assets" / "CODEX_HANDOFF.template.md"
 
 
@@ -149,6 +150,33 @@ Run `python3 scripts/validate_package.py`, inspect every reported error, and fin
 
 
 class HelperTests(unittest.TestCase):
+    def test_identity_verifier_reports_exact_skill_without_repo_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            before = sorted(workspace.rglob("*"))
+            result = run(str(VERIFY_IDENTITY), str(SKILL / "SKILL.md"))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            receipt = json.loads(result.stdout)
+            self.assertEqual(receipt["name"], "codex-handoff")
+            self.assertEqual(
+                receipt["skill_file"], str((SKILL / "SKILL.md").resolve())
+            )
+            self.assertRegex(receipt["sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(sorted(workspace.rglob("*")), before)
+            self.assertFalse((workspace / "docs" / "CODEX_HANDOFF.md").exists())
+
+    def test_identity_verifier_rejects_hash_mismatch(self) -> None:
+        result = run(
+            str(VERIFY_IDENTITY),
+            str(SKILL / "SKILL.md"),
+            "--expect-sha256",
+            "0" * 64,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        error = json.loads(result.stderr)
+        self.assertEqual(error["error"], "CODEX_HANDOFF_SKILL_IDENTITY_ERROR")
+        self.assertIn("SHA-256", error["message"])
+
     def test_collect_snapshot_for_git_repository(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"

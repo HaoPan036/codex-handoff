@@ -4,16 +4,18 @@
 The hook has two responsibilities only:
 
 1. Count completed PostCompact events per Codex session.
-2. At the next Stop event after the threshold, request one continuation prompt
-   that explicitly invokes the bundled ``$codex-handoff`` skill.
+2. At the next Stop event after the threshold, bind one continuation to the
+   exact bundled ``codex-handoff`` workflow file.
 
 It does not inspect transcripts, modify repositories, or make network calls.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shlex
 import sys
 import tempfile
 import time
@@ -27,6 +29,9 @@ STATE_FILENAME = "state.json"
 LOCK_FILENAME = "state.lock"
 EVENT_LOG_FILENAME = "events.jsonl"
 CONFIG_FILENAME = "config.json"
+SKILL_NAME = "codex-handoff"
+SKILL_RELATIVE_PATH = Path("skills") / SKILL_NAME / "SKILL.md"
+IDENTITY_HELPER_RELATIVE_PATH = Path("scripts") / "verify_identity.py"
 
 
 class FileLock:
@@ -229,14 +234,113 @@ def stop_continue_output() -> dict[str, bool]:
     return {"continue": True}
 
 
+def parse_skill_name(text: str) -> str | None:
+    if not text.startswith("---\n"):
+        return None
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return None
+    for line in text[4:end].splitlines():
+        key, separator, value = line.partition(":")
+        if separator and key.strip() == "name":
+            return value.strip().strip("\"'")
+    return None
+
+
+def expected_skill_file() -> tuple[Path | None, str]:
+    plugin_root = os.environ.get("PLUGIN_ROOT") or os.environ.get(
+        "CLAUDE_PLUGIN_ROOT"
+    )
+    if plugin_root:
+        return (
+            Path(plugin_root).expanduser().resolve() / SKILL_RELATIVE_PATH,
+            "plugin_root",
+        )
+
+    profile_skill = os.environ.get("CODEX_HANDOFF_SKILL_PATH")
+    if profile_skill:
+        return Path(profile_skill).expanduser().resolve(), "profile_installer"
+
+    return None, "unconfigured"
+
+
+def resolve_skill_identity() -> tuple[dict[str, str] | None, str]:
+    skill_file, source = expected_skill_file()
+    if skill_file is None:
+        return None, (
+            "neither the host-provided PLUGIN_ROOT nor the profile installer's "
+            "CODEX_HANDOFF_SKILL_PATH is available"
+        )
+
+    try:
+        content = skill_file.read_bytes()
+    except OSError as exc:
+        return None, f"cannot read {skill_file}: {exc.strerror or exc}"
+
+    try:
+        skill_name = parse_skill_name(content.decode("utf-8"))
+    except UnicodeDecodeError:
+        return None, f"{skill_file} is not valid UTF-8"
+    if skill_name != SKILL_NAME:
+        return None, (
+            f"{skill_file} declares Skill name {skill_name!r}, expected "
+            f"{SKILL_NAME!r}"
+        )
+
+    verifier_file = skill_file.parent / IDENTITY_HELPER_RELATIVE_PATH
+    if not verifier_file.is_file():
+        return None, f"identity verifier is unavailable: {verifier_file}"
+
+    return (
+        {
+            "name": SKILL_NAME,
+            "resolver": source,
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "skill_file": str(skill_file),
+            "verifier_file": str(verifier_file),
+        },
+        "",
+    )
+
+
+def build_skill_unavailable_reason(expected: Path | None, error: str) -> str:
+    expected_text = str(expected) if expected is not None else "UNRESOLVED"
+    return f"""CODEX_HANDOFF_SKILL_UNAVAILABLE
+
+The automatic handoff reached a safe Stop boundary, but the hook could not verify its own exact `codex-handoff` workflow at `{expected_text}`: {error}.
+
+Report this automatic handoff failure clearly, then stop. Do not search for or invoke another handoff Skill, do not use an equivalent workflow, and do not create or update `docs/CODEX_HANDOFF.md` in this continuation. The compact counter has been preserved for a later retry after the installation is repaired."""
+
+
 def build_handoff_reason(
     compact_count: int,
     total_compactions: int,
     threshold: int,
+    identity: dict[str, str],
 ) -> str:
+    dispatch = json.dumps(
+        identity, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    )
+    verifier_command = " ".join(
+        [
+            "python3",
+            shlex.quote(identity["verifier_file"]),
+            shlex.quote(identity["skill_file"]),
+            "--expect-sha256",
+            identity["sha256"],
+        ]
+    )
     return f"""The current turn has finished at a safe Stop boundary. This Codex session completed {compact_count} context compactions since its previous handoff, reaching the configured threshold of {threshold}. The session has completed {total_compactions} compactions in total.
 
-Now invoke the installed skill `$codex-handoff` explicitly. Create or update `docs/CODEX_HANDOFF.md` using verified repository, Git, applicable AGENTS.md, source, configuration, generated artifact, and test evidence. Validate the handoff, then attempt to open a clean Codex session for the same workspace.
+CODEX_HANDOFF_DISPATCH={dispatch}
+
+The automatic workflow identity is fixed by the dispatch record above. Before any handoff work:
+
+1. Run `{verifier_command}` and require a successful receipt with the same name, absolute Skill file, and SHA-256.
+2. Read the exact `skill_file` from the dispatch record.
+3. Follow only that file's workflow.
+
+Do not use Skill discovery, a `$` mention, filesystem search, or any other handoff Skill. If the verifier fails, the file cannot be read, its frontmatter name is not exactly `codex-handoff`, or its hash differs from the dispatch record, report `CODEX_HANDOFF_SKILL_IDENTITY_ERROR` and stop without substituting another workflow.
 
 During this continuation, do not resume feature implementation and do not change application source files. Preserve all staged, unstaged, and untracked work. Do not commit, push, reset, clean, discard, stash, archive, or delete anything unless the user explicitly requested it. Mark any material claim that cannot be verified as UNKNOWN.
 
@@ -292,29 +396,58 @@ def main() -> int:
             if pending and not already_continued:
                 compact_count = int(entry["compact_count_since_handoff"])
                 total_compactions = int(entry["total_compactions"])
-                entry["pending_handoff"] = False
-                entry["compact_count_since_handoff"] = 0
-                entry["handoff_requests"] += 1
-                entry["last_handoff_requested_at"] = time.strftime(
-                    "%Y-%m-%dT%H:%M:%S%z"
-                )
-                output = {
-                    "decision": "block",
-                    "reason": build_handoff_reason(
-                        compact_count=compact_count,
+                identity, identity_error = resolve_skill_identity()
+                if identity is None:
+                    expected, resolver = expected_skill_file()
+                    entry["pending_handoff"] = False
+                    output = {
+                        "decision": "block",
+                        "reason": build_skill_unavailable_reason(
+                            expected, identity_error
+                        ),
+                    }
+                    append_event(
+                        event_log_path,
+                        payload,
+                        action="handoff_skill_unavailable",
+                        compact_count_since_handoff=compact_count,
                         total_compactions=total_compactions,
                         threshold=threshold,
-                    ),
-                }
-                append_event(
-                    event_log_path,
-                    payload,
-                    action="handoff_requested_at_safe_stop",
-                    compact_count_since_handoff=compact_count,
-                    total_compactions=total_compactions,
-                    threshold=threshold,
-                    handoff_requests=entry["handoff_requests"],
-                )
+                        expected_skill_path=(
+                            str(expected) if expected is not None else None
+                        ),
+                        skill_resolver=resolver,
+                        error=identity_error,
+                    )
+                else:
+                    entry["pending_handoff"] = False
+                    entry["compact_count_since_handoff"] = 0
+                    entry["handoff_requests"] += 1
+                    entry["last_handoff_requested_at"] = time.strftime(
+                        "%Y-%m-%dT%H:%M:%S%z"
+                    )
+                    output = {
+                        "decision": "block",
+                        "reason": build_handoff_reason(
+                            compact_count=compact_count,
+                            total_compactions=total_compactions,
+                            threshold=threshold,
+                            identity=identity,
+                        ),
+                    }
+                    append_event(
+                        event_log_path,
+                        payload,
+                        action="handoff_requested_at_safe_stop",
+                        compact_count_since_handoff=compact_count,
+                        total_compactions=total_compactions,
+                        threshold=threshold,
+                        handoff_requests=entry["handoff_requests"],
+                        skill_identity=identity["name"],
+                        skill_path=identity["skill_file"],
+                        skill_sha256=identity["sha256"],
+                        skill_resolver=identity["resolver"],
+                    )
             else:
                 output = stop_continue_output()
                 append_event(

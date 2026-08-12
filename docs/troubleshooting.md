@@ -11,6 +11,19 @@ Profile: ~/.agents/skills/codex-handoff/SKILL.md
 
 For profile installation, rerun `bash install.sh 3` and inspect its printed paths.
 
+## Automatic handoff reports `CODEX_HANDOFF_SKILL_UNAVAILABLE`
+
+The Hook could not verify its own exact workflow file. Do not work around this by selecting another `handoff` Skill.
+
+- Plugin mode: remove and reinstall `codex-handoff@codex-handoff`, start a new session, and review the refreshed hooks. The Hook resolves only `${PLUGIN_ROOT}/skills/codex-handoff/SKILL.md`.
+- Profile mode: rerun `bash install.sh 3`. The installer rewrites `CODEX_HANDOFF_SKILL_PATH` in both Hook commands to the exact installed Skill.
+
+The compact count is preserved. After repair, the next completed compaction can schedule another safe retry.
+
+## Automatic handoff selected another `handoff` Skill
+
+Version `0.1.0` continuation text could be treated as ordinary prompt text by the Host, allowing the model to choose a similarly named Skill. Reinstall a version containing the deterministic identity fix and start a new session. A fixed audit record named `handoff_requested_at_safe_stop` includes `skill_identity`, `skill_path`, `skill_sha256`, and `skill_resolver`; the continuation trace includes a successful `verify_identity.py` receipt. Absence of those fields means an older cached Hook is still active.
+
 ## Compact events are not counted
 
 Review and trust the Hook in Codex. Plugin installation does not imply Hook trust.

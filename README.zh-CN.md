@@ -55,7 +55,7 @@ $codex-handoff
 
 自动流程把计数和行动分开。`PostCompact` 只记录一次已经完成的 compaction，不改变模型行为。达到阈值以后，Hook 只把状态记为待交接。当前任务、tool call、测试和 subagent 都会继续，直到 Turn 自然到达 `Stop`。
 
-到了这个边界，Hook 才安排一次 continuation，显式调用 `$codex-handoff`。Skill 随后检查仓库、写入并校验交接文件，再尽力打开一个干净的新 Codex Session。
+到了这个边界，Hook 会根据 Host 提供的 Plugin root（或 profile installer 写入的精确路径）定位自己的 Skill，校验 Skill 名称并记录 SHA-256。Continuation 会再次验证这份 identity，再读取精确的 `SKILL.md`；它不会搜索名称相似的 handoff Skill。随后 workflow 检查仓库、写入并校验交接文件，再尽力打开一个干净的新 Codex Session。
 
 ### 技术流程
 
@@ -67,8 +67,8 @@ flowchart LR
     C -- 是 --> E[记录待交接状态]
     E --> D
     D --> F[当前 Turn 自然到达 Stop]
-    F --> G[显式调用 $codex-handoff]
-    G --> H[收集 Git 和仓库证据]
+    F --> G[绑定精确 Skill 路径和 SHA-256]
+    G --> H[验证 identity 并收集证据]
     H --> I[创建或更新 docs/CODEX_HANDOFF.md]
     I --> J[校验结构和有限历史]
     J --> K[准备新 Session 启动提示词]
@@ -82,8 +82,10 @@ flowchart LR
 
 1. 当前 Session 完成 3 次 `PostCompact`。
 2. 当前任务继续执行，不会被中途打断。
-3. Turn 自然到达下一次 `Stop` 时，Hook 安排一次显式调用 `$codex-handoff` 的 continuation。
-4. Skill 创建或更新 `docs/CODEX_HANDOFF.md`，完成校验，并准备干净的新 Session。
+3. Turn 自然到达下一次 `Stop` 时，Hook 把 continuation 绑定到精确的 `codex-handoff/SKILL.md` 路径和 SHA-256。
+4. Continuation 验证 identity，只读取这份 workflow，再创建或更新 `docs/CODEX_HANDOFF.md`、完成校验并准备干净的新 Session。
+
+如果精确的 Skill 或 identity verifier 不可用，自动交接会明确报告 `CODEX_HANDOFF_SKILL_UNAVAILABLE`，不会替换成 `handoff` 或其他相似 Skill。手工 `$codex-handoff` 仍保持 explicit-only。
 
 每次发出交接请求以后，当前交接周期的计数会归零。后续再累计到阈值时仍能触发。`stop_hook_active` 会阻止 continuation 再次安排自身。
 
@@ -156,6 +158,7 @@ bash install.sh 3
 - 备份并更新 `~/.codex/config.toml`
 - 删除旧版 `codex-handoff-session` 写入的 Hook 配置
 - 尽可能迁移兼容的 v3 compact 计数
+- 把两条 lifecycle Hook 命令固定到已安装的 `~/.agents/skills/codex-handoff/SKILL.md`
 
 安装后需要重启 Codex，并检查 Hook 的完整定义。
 
@@ -163,7 +166,7 @@ bash install.sh 3
 
 仓库已经包含 Plugin 包和 Marketplace metadata。2026 年 8 月 11 日，Codex CLI `0.147.0-alpha.6.5` 分别从本地 checkout 和公开的 `HaoPan036/codex-handoff` shorthand 成功发现并安装了 `0.1.0`，两次测试均使用隔离的 `CODEX_HOME`。公开缓存中的 manifest、Hook、Skill 和 helper hash 与当前仓库一致。随后，一个由模型驱动的 Codex CLI Session 在一次性仓库中信任 bundled Hook 并完成了两个由 host 发出的阈值周期：6 次真实 `PostCompact` 产生 2 次安全 handoff continuation，每次请求后计数都归零，两次 handoff 文件都通过校验，而且 continuation 均正常结束、没有形成循环。第二轮的 `codex://new` 还打开了一个干净 Session，由它独立核对 handoff 和仓库状态。
 
-[smoke-test 记录](docs/smoke-test-2026-08-11.md) 给出了环境、精确状态变化、第一轮观察到的启动回退，以及仍未完成的发布边界。
+[2026-08-11 lifecycle 记录及其修正后的 identity 证据范围](docs/smoke-test-2026-08-11.md)，以及 [2026-08-12 Skill identity 回归记录](docs/smoke-test-2026-08-12.md) 给出了完整证据。
 
 ```bash
 codex plugin marketplace add HaoPan036/codex-handoff
@@ -229,7 +232,7 @@ bash install.sh 5
 - 用户级安装脚本要求 Python 3.11 或更高版本。运行时辅助脚本只使用 Python 标准库。
 - 当前打包的 Hook 命令面向 macOS 和 Linux shell。
 - Codex Plugin 可用于 Codex CLI 和 ChatGPT 桌面端，IDE Extension 暂不支持。IDE Extension 可以使用用户级安装脚本。
-- 本地和公开 GitHub Marketplace 的发现与安装已通过隔离冒烟测试。交互式 Hook trust、host 发出的事件、两个重复阈值周期、由 Skill 编写 handoff、校验、防循环和干净 Session 续接也已通过由模型驱动的 macOS host 测试。相关材料见 [测试记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
+- 本地和公开 GitHub Marketplace 的发现与安装已通过隔离冒烟测试。交互式 Hook trust、host 发出的事件、重复阈值周期、确定性的 Skill 路径与 hash 校验、handoff 校验和防循环也已通过由模型驱动的 macOS host 测试。相关材料见 [identity 测试记录](docs/smoke-test-2026-08-12.md)、[较早的 lifecycle 记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
 - `codex://new` 打开新 Session 的能力采用尽力而为策略。操作系统无法打开时，辅助脚本会输出完整的手动启动提示词。
 - 自动打开失败不会影响已经校验完成的 handoff 文件。
 
@@ -242,7 +245,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-测试覆盖阈值计数、合法的 `Stop` JSON、安全边界、周期触发、状态保留、snapshot、handoff validator、新 Session 回退、旧版安装升级和 Plugin metadata。
+测试覆盖阈值计数、精确 Skill identity 与失败路径、竞争 Skill 拒绝、合法的 `Stop` JSON、安全边界、周期触发、状态保留、snapshot、handoff validator、新 Session 回退、旧版安装升级和 Plugin metadata。
 
 修改生命周期协议前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [docs/design.md](docs/design.md)。常见安装与运行问题见 [docs/troubleshooting.md](docs/troubleshooting.md)。
 
@@ -261,12 +264,14 @@ plugins/codex-handoff/
     agents/openai.yaml
     assets/CODEX_HANDOFF.template.md
     scripts/
+      verify_identity.py
 docs/
   assets/
     codex-handoff-demo.gif
     codex-handoff-flow.svg
   demo.md
   smoke-test-2026-08-11.md
+  smoke-test-2026-08-12.md
 scripts/
   install_profile.py
   uninstall_profile.py
