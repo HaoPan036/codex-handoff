@@ -76,6 +76,7 @@ REQUIRED_FILES = [
     / "open_new_session.py",
     IDENTITY_HELPER_PATH,
     ROOT / "scripts" / "install_profile.py",
+    ROOT / "scripts" / "doctor.py",
     ROOT / "scripts" / "uninstall_profile.py",
 ]
 
@@ -192,9 +193,13 @@ def main() -> int:
     if not isinstance(hook_map, dict):
         errors.append("hooks.json must contain a hooks object.")
     else:
-        if set(hook_map) != {"PostCompact", "Stop"}:
-            errors.append("hooks.json must define only PostCompact and Stop.")
-        for event in ("PostCompact", "Stop"):
+        expected_events = {"SessionStart", "PostCompact", "Stop", "SessionEnd"}
+        if set(hook_map) != expected_events:
+            errors.append(
+                "hooks.json must define SessionStart, PostCompact, Stop, and "
+                "SessionEnd."
+            )
+        for event in ("SessionStart", "PostCompact", "Stop", "SessionEnd"):
             groups = hook_map.get(event)
             if not isinstance(groups, list) or not groups:
                 errors.append(f"{event} must contain at least one hook group.")
@@ -284,7 +289,7 @@ def main() -> int:
     print("Package validation passed.")
     print(f"Version: {manifest_version}")
     print(f"Python files compiled: {len(python_files)}")
-    print("Plugin events: PostCompact, Stop")
+    print("Plugin events: SessionStart, PostCompact, Stop, SessionEnd")
     return 0
 
 

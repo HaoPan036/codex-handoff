@@ -2,6 +2,22 @@
 
 All notable changes are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Isolated automatic handoff evidence across `startup`, `clear`, and `resume` lifecycle generations so stale pending state cannot leak into a fresh Host lifecycle.
+- Added generation-bound `PostCompact` receipts, compact-boundary deduplication, and Stop-time evidence revalidation while preserving recurring handoffs and the exact Skill identity protocol.
+- Corrected clean-continuation results so OS deep-link dispatch is no longer reported as verified thread creation, prompt submission, turn start, or thread naming.
+
+### Added
+
+- Added a read-only `scripts/doctor.py` for Plugin, profile, project, and legacy Hook source diagnostics, plus an installer warning for Plugin + profile duplication.
+
+### Changed
+
+- Documented the official composer behavior: the deep link prepares the startup prompt, and the user presses **Send** to start the continuation.
+
 ## 0.1.1, 2026-08-12
 
 ### Fixed

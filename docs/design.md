@@ -13,34 +13,48 @@ Chat history alone cannot provide a stable source of truth because it may be com
 
 ## Lifecycle choice
 
-The automatic flow uses two events with separate responsibilities.
+The automatic flow uses four events with separate responsibilities.
+
+### SessionStart
+
+`startup`, `clear`, and `resume` each start a new lifecycle generation and discard unverified compact evidence or pending state from the previous generation. `compact` does not start a new generation. It acknowledges the preceding `PostCompact` boundary so a later compaction in the same long turn can receive a different receipt.
 
 ### PostCompact
 
-A completed `PostCompact` increments a per-session counter. Reaching the threshold sets `pending_handoff=true`. This event never emits a continuation or blocking decision, because compaction may complete while the active turn still has edits, tools, tests, or subagents to run.
+A completed `PostCompact` creates a deterministic receipt from the session, generation, compact boundary, turn, and trigger. Redelivery of the same payload before `SessionStart(source=compact)` is audited as a duplicate and does not increment the count. Reaching the threshold sets `pending_handoff=true`. This event never emits a continuation or blocking decision, because compaction may complete while the active turn still has edits, tools, tests, or subagents to run.
 
 ### Stop
 
-At a later `Stop`, the hook checks the pending flag. When a handoff is pending and `stop_hook_active` is false, it resolves the exact workflow file from the official `PLUGIN_ROOT` (Plugin mode) or installer-provided `CODEX_HANDOFF_SKILL_PATH` (profile mode). It verifies the frontmatter name and verifier file, hashes the Skill, and returns `decision: block` with a structured dispatch record containing the exact path and SHA-256.
+At a later `Stop`, the hook does not trust `pending_handoff` alone. It revalidates that the active generation still has at least the configured number of receipts. Stale pending state without that evidence is cleared and audited. When a handoff is valid and `stop_hook_active` is false, the Hook resolves the exact workflow file from the official `PLUGIN_ROOT` (Plugin mode) or installer-provided `CODEX_HANDOFF_SKILL_PATH` (profile mode). It verifies the frontmatter name and verifier file, hashes the Skill, and returns `decision: block` with a structured dispatch record containing the exact path and SHA-256.
 
 The continuation must run the bundled identity verifier with that expected hash before it reads the exact Skill file. It is explicitly forbidden from using Skill discovery, filesystem search, or a similarly named fallback. A missing, unreadable, renamed, or unverifiable workflow produces `CODEX_HANDOFF_SKILL_UNAVAILABLE`; the per-handoff compact count is preserved and no handoff request is recorded.
 
 Every other successful `Stop` path returns valid JSON with `continue: true`. This includes normal stops, repeated stops, missing session identifiers, and continuation stops.
 
+### SessionEnd
+
+`SessionEnd` marks the current generation inactive and clears its pending flag. A later `resume` starts another generation, so an ended lifecycle cannot authorize a future continuation.
+
 ## State machine
 
 ```text
-IDLE
-  PostCompact -> COUNTING
+SESSION_START(startup|clear|resume)
+  -> NEW_GENERATION
+
+NEW_GENERATION
+  unique PostCompact -> COUNTING
 
 COUNTING
-  count < threshold -> COUNTING
+  duplicate PostCompact before compact boundary -> COUNTING unchanged
+  SessionStart(compact) -> advance receipt boundary
+  unique receipt count < threshold -> COUNTING
   count >= threshold -> PENDING
 
 PENDING
-  PostCompact -> PENDING with a higher count
+  Stop -> revalidate current-generation receipts
   Stop and stop_hook_active=false -> HANDOFF_REQUESTED
   Stop and stop_hook_active=true -> PENDING
+  SessionStart(startup|clear|resume) -> NEW_GENERATION, stale pending discarded
 
 HANDOFF_REQUESTED
   reset count to 0 -> IDLE
@@ -50,9 +64,12 @@ PENDING
 
 IDENTITY_FAILURE
   preserve count; next PostCompact -> PENDING for retry
+
+ANY ACTIVE STATE
+  SessionEnd -> INACTIVE
 ```
 
-`total_compactions` remains monotonic for local audit. `compact_count_since_handoff` resets after a handoff request so the threshold can recur.
+`total_compactions` remains monotonic for local audit. Active receipts and `compact_count_since_handoff` reset after a handoff request so the threshold can recur with independent evidence.
 
 ## Data model
 
@@ -61,6 +78,14 @@ State is keyed by Codex `session_id`:
 ```json
 {
   "session-id": {
+    "schema_version": 2,
+    "generation_id": "6ac2c7...",
+    "generation_index": 3,
+    "generation_source": "resume",
+    "generation_started_at": "2026-08-14T10:00:00+0800",
+    "generation_active": true,
+    "compact_sequence": 3,
+    "compact_receipts": [],
     "compact_count_since_handoff": 0,
     "total_compactions": 3,
     "pending_handoff": false,
@@ -73,6 +98,8 @@ State is keyed by Codex `session_id`:
 ```
 
 State writes use a lock and atomic replacement. Records older than 30 days are pruned when the hook runs.
+
+Legacy state has no generation-bound receipts. Its lifetime total remains diagnostic history, but its old count and pending flag cannot authorize a continuation.
 
 ## Trust boundary
 
@@ -105,4 +132,17 @@ Sections 1 through 10 are replaced with the current verified state. Section 11 p
 
 ## Clean-session opening
 
-The helper constructs a startup prompt and makes a best-effort attempt to pass a `codex://new` URL to the operating system. This step is deliberately non-critical. Failure returns the full startup prompt for manual use, while the verified handoff remains complete.
+The helper constructs a startup prompt and makes a best-effort attempt to pass a `codex://new` URL to the operating system. Its result separates OS dispatch from thread creation, prompt prefill, prompt submission, turn start, and thread naming. The official [desktop deep-link contract](https://developers.openai.com/codex/app/commands/#deeplinks) sets initial composer text but does not send it. The default product path is therefore:
+
+```text
+verified handoff
+  -> deep-link dispatch (best effort)
+  -> prefilled composer
+  -> user presses Send
+```
+
+Dispatch failure returns the full startup prompt for manual use, while the verified handoff remains complete. The official [App Server protocol](https://developers.openai.com/codex/app-server/) can acknowledge `thread/start`, `turn/start`, and `thread/name/set`, and a disposable macOS test found that resulting thread in Desktop history. It is not the default path: starting a model turn from a separate App Server client has a larger permission, configuration, and future-compatibility surface than the canonical user-reviewed composer flow.
+
+## Duplicate installation diagnostics
+
+Official Codex behavior merges matching hooks from all active sources. `scripts/doctor.py` therefore reports Plugin, profile, project, and legacy sources without modifying them. The profile installer emits a strong warning when the Plugin is already enabled; it does not silently disable that Plugin.

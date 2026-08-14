@@ -3,7 +3,7 @@
 
 The hook has two responsibilities only:
 
-1. Count completed PostCompact events per Codex session.
+1. Count generation-bound, deduplicated PostCompact receipts.
 2. At the next Stop event after the threshold, bind one continuation to the
    exact bundled ``codex-handoff`` workflow file.
 
@@ -25,6 +25,8 @@ from typing import Any, TextIO
 DEFAULT_THRESHOLD = 3
 RETENTION_SECONDS = 30 * 24 * 60 * 60
 MAX_LOG_BYTES = 1_000_000
+MAX_ACTIVE_RECEIPTS = 256
+STATE_SCHEMA_VERSION = 2
 STATE_FILENAME = "state.json"
 LOCK_FILENAME = "state.lock"
 EVENT_LOG_FILENAME = "events.jsonl"
@@ -174,21 +176,169 @@ def timestamp_value(value: object, default: float) -> float:
         return default
 
 
-def normalize_entry(value: object, cwd: str) -> dict[str, Any]:
+def iso_timestamp() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S%z")
+
+
+def generation_id(
+    session_id: str, source: str, generation_index: int, now: float
+) -> str:
+    material = f"{session_id}\0{source}\0{generation_index}\0{now:.9f}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:24]
+
+
+def normalize_receipts(
+    value: object, expected_generation: str, minimum_capacity: int = 0
+) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    receipts: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    capacity = max(MAX_ACTIVE_RECEIPTS, minimum_capacity)
+    for raw in value[-capacity:]:
+        if not isinstance(raw, dict):
+            continue
+        receipt_id = raw.get("receipt_id")
+        if not isinstance(receipt_id, str) or not receipt_id or receipt_id in seen:
+            continue
+        if raw.get("generation_id") != expected_generation:
+            continue
+        receipts.append(
+            {
+                "receipt_id": receipt_id,
+                "generation_id": expected_generation,
+                "compact_sequence": nonnegative_int(raw.get("compact_sequence")),
+                "turn_id": str(raw.get("turn_id") or ""),
+                "trigger": str(raw.get("trigger") or "unknown"),
+                "observed_at": str(raw.get("observed_at") or "UNKNOWN"),
+            }
+        )
+        seen.add(receipt_id)
+    return receipts
+
+
+def normalize_entry(
+    value: object, cwd: str, session_id: str, now: float, threshold: int
+) -> dict[str, Any]:
     existing = value if isinstance(value, dict) else {}
     legacy_count = nonnegative_int(existing.get("count"))
+    generation_index = nonnegative_int(existing.get("generation_index"))
+    existing_generation = existing.get("generation_id")
+    has_current_schema = (
+        nonnegative_int(existing.get("schema_version")) == STATE_SCHEMA_VERSION
+        and isinstance(existing_generation, str)
+        and bool(existing_generation)
+    )
+    if has_current_schema:
+        current_generation = str(existing_generation)
+        receipts = normalize_receipts(
+            existing.get("compact_receipts"), current_generation, threshold
+        )
+        legacy_unverified_count = nonnegative_int(
+            existing.get("legacy_unverified_compact_count")
+        )
+    else:
+        generation_index += 1
+        current_generation = generation_id(
+            session_id, "implicit", generation_index, now
+        )
+        # Old counters have no generation-bound receipts and cannot authorize a
+        # continuation after an upgrade.
+        receipts = []
+        legacy_unverified_count = max(
+            nonnegative_int(existing.get("legacy_unverified_compact_count")),
+            nonnegative_int(existing.get("compact_count_since_handoff")),
+            legacy_count,
+        )
+
     return {
-        "compact_count_since_handoff": nonnegative_int(
-            existing.get("compact_count_since_handoff"), legacy_count
+        "schema_version": STATE_SCHEMA_VERSION,
+        "generation_id": current_generation,
+        "generation_index": generation_index,
+        "generation_source": str(
+            existing.get("generation_source") if has_current_schema else "implicit"
         ),
+        "generation_started_at": str(
+            existing.get("generation_started_at")
+            if has_current_schema
+            else iso_timestamp()
+        ),
+        "generation_active": bool(
+            existing.get("generation_active", True) if has_current_schema else True
+        ),
+        "compact_sequence": nonnegative_int(
+            existing.get("compact_sequence") if has_current_schema else 0
+        ),
+        "awaiting_compact_start": bool(
+            existing.get("awaiting_compact_start", False)
+            if has_current_schema
+            else False
+        ),
+        "compact_receipts": receipts,
+        "compact_count_since_handoff": len(receipts),
+        "legacy_unverified_compact_count": legacy_unverified_count,
         "total_compactions": nonnegative_int(
             existing.get("total_compactions"), legacy_count
         ),
-        "pending_handoff": bool(existing.get("pending_handoff", False)),
+        "pending_handoff": (
+            bool(existing.get("pending_handoff", False))
+            if has_current_schema
+            else False
+        ),
         "handoff_requests": nonnegative_int(existing.get("handoff_requests")),
         "cwd": str(existing.get("cwd") or cwd),
         "updated_at": timestamp_value(existing.get("updated_at"), time.time()),
         "last_handoff_requested_at": existing.get("last_handoff_requested_at"),
+        "last_handoff_receipt_ids": (
+            existing.get("last_handoff_receipt_ids", [])
+            if isinstance(existing.get("last_handoff_receipt_ids", []), list)
+            else []
+        ),
+    }
+
+
+def start_generation(
+    entry: dict[str, Any], session_id: str, source: str, now: float
+) -> dict[str, Any]:
+    next_index = nonnegative_int(entry.get("generation_index")) + 1
+    entry.update(
+        {
+            "schema_version": STATE_SCHEMA_VERSION,
+            "generation_id": generation_id(session_id, source, next_index, now),
+            "generation_index": next_index,
+            "generation_source": source,
+            "generation_started_at": iso_timestamp(),
+            "generation_active": True,
+            "compact_sequence": 0,
+            "awaiting_compact_start": False,
+            "compact_receipts": [],
+            "compact_count_since_handoff": 0,
+            "pending_handoff": False,
+        }
+    )
+    return entry
+
+
+def build_receipt(entry: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    sequence = nonnegative_int(entry.get("compact_sequence"))
+    turn_id = str(payload.get("turn_id") or "")
+    trigger = str(payload.get("trigger") or "unknown")
+    material = "\0".join(
+        [
+            str(payload.get("session_id") or ""),
+            str(entry["generation_id"]),
+            str(sequence),
+            turn_id,
+            trigger,
+        ]
+    )
+    return {
+        "receipt_id": hashlib.sha256(material.encode("utf-8")).hexdigest()[:24],
+        "generation_id": entry["generation_id"],
+        "compact_sequence": sequence,
+        "turn_id": turn_id,
+        "trigger": trigger,
+        "observed_at": iso_timestamp(),
     }
 
 
@@ -370,19 +520,91 @@ def main() -> int:
     with FileLock(lock_path):
         now = time.time()
         state = prune_state(load_state(state_path), now)
-        entry = normalize_entry(state.get(str(session_id)), cwd)
+        session_key = str(session_id)
+        entry = normalize_entry(
+            state.get(session_key), cwd, session_key, now, threshold
+        )
         entry["cwd"] = cwd
         entry["updated_at"] = now
 
-        if event == "PostCompact":
-            entry["compact_count_since_handoff"] += 1
-            entry["total_compactions"] += 1
+        if event == "SessionStart":
+            source = str(payload.get("source") or "unknown")
+            previous_generation = entry["generation_id"]
+            previous_count = entry["compact_count_since_handoff"]
+            previous_pending = entry["pending_handoff"]
+
+            if source in {"startup", "clear", "resume"}:
+                start_generation(entry, session_key, source, now)
+                action = "generation_started"
+            elif source == "compact":
+                entry["generation_active"] = True
+                entry["compact_sequence"] += 1
+                confirmed = bool(entry["awaiting_compact_start"])
+                entry["awaiting_compact_start"] = False
+                action = (
+                    "compact_boundary_confirmed"
+                    if confirmed
+                    else "compact_boundary_without_receipt"
+                )
+            else:
+                action = "unknown_session_start_source"
+
+            append_event(
+                event_log_path,
+                payload,
+                action=action,
+                generation_id=entry["generation_id"],
+                generation_source=entry["generation_source"],
+                previous_generation_id=previous_generation,
+                previous_compact_count=previous_count,
+                previous_pending_handoff=previous_pending,
+                session_start_source=source,
+                compact_count_since_handoff=entry["compact_count_since_handoff"],
+                pending_handoff=entry["pending_handoff"],
+            )
+
+        elif event == "SessionEnd":
+            entry["generation_active"] = False
+            entry["pending_handoff"] = False
+            append_event(
+                event_log_path,
+                payload,
+                action="generation_ended",
+                generation_id=entry["generation_id"],
+                generation_source=entry["generation_source"],
+                compact_count_since_handoff=entry["compact_count_since_handoff"],
+                pending_handoff=False,
+            )
+
+        elif event == "PostCompact":
+            receipt = build_receipt(entry, payload)
+            existing_ids = {
+                item["receipt_id"] for item in entry["compact_receipts"]
+            }
+            duplicate = receipt["receipt_id"] in existing_ids
+            if not duplicate:
+                entry["compact_receipts"].append(receipt)
+                receipt_capacity = max(MAX_ACTIVE_RECEIPTS, threshold)
+                if len(entry["compact_receipts"]) > receipt_capacity:
+                    entry["compact_receipts"] = entry["compact_receipts"][
+                        -receipt_capacity:
+                    ]
+                entry["compact_count_since_handoff"] = len(
+                    entry["compact_receipts"]
+                )
+                entry["total_compactions"] += 1
+                entry["awaiting_compact_start"] = True
             if entry["compact_count_since_handoff"] >= threshold:
                 entry["pending_handoff"] = True
 
             append_event(
                 event_log_path,
                 payload,
+                action=("duplicate_compact_ignored" if duplicate else "compact_recorded"),
+                generation_id=entry["generation_id"],
+                generation_source=entry["generation_source"],
+                receipt_id=receipt["receipt_id"],
+                duplicate=duplicate,
                 compact_count_since_handoff=entry["compact_count_since_handoff"],
                 total_compactions=entry["total_compactions"],
                 threshold=threshold,
@@ -390,7 +612,21 @@ def main() -> int:
             )
 
         elif event == "Stop":
-            pending = bool(entry["pending_handoff"])
+            receipts = normalize_receipts(
+                entry.get("compact_receipts"),
+                str(entry["generation_id"]),
+                threshold,
+            )
+            entry["compact_receipts"] = receipts
+            entry["compact_count_since_handoff"] = len(receipts)
+            evidence_valid = (
+                bool(entry["generation_active"])
+                and len(receipts) >= threshold
+            )
+            stale_pending = bool(entry["pending_handoff"]) and not evidence_valid
+            if stale_pending:
+                entry["pending_handoff"] = False
+            pending = bool(entry["pending_handoff"]) and evidence_valid
             already_continued = bool(payload.get("stop_hook_active", False))
 
             if pending and not already_continued:
@@ -422,10 +658,12 @@ def main() -> int:
                 else:
                     entry["pending_handoff"] = False
                     entry["compact_count_since_handoff"] = 0
+                    entry["compact_receipts"] = []
+                    entry["last_handoff_receipt_ids"] = [
+                        receipt["receipt_id"] for receipt in receipts
+                    ]
                     entry["handoff_requests"] += 1
-                    entry["last_handoff_requested_at"] = time.strftime(
-                        "%Y-%m-%dT%H:%M:%S%z"
-                    )
+                    entry["last_handoff_requested_at"] = iso_timestamp()
                     output = {
                         "decision": "block",
                         "reason": build_handoff_reason(
@@ -443,6 +681,9 @@ def main() -> int:
                         total_compactions=total_compactions,
                         threshold=threshold,
                         handoff_requests=entry["handoff_requests"],
+                        generation_id=entry["generation_id"],
+                        generation_source=entry["generation_source"],
+                        receipt_ids=entry["last_handoff_receipt_ids"],
                         skill_identity=identity["name"],
                         skill_path=identity["skill_file"],
                         skill_sha256=identity["sha256"],
@@ -456,8 +697,14 @@ def main() -> int:
                     action=(
                         "continuation_stop"
                         if already_continued
-                        else "normal_stop"
+                        else (
+                            "stale_pending_rejected"
+                            if stale_pending
+                            else "normal_stop"
+                        )
                     ),
+                    generation_id=entry["generation_id"],
+                    generation_source=entry["generation_source"],
                     compact_count_since_handoff=entry[
                         "compact_count_since_handoff"
                     ],
@@ -466,7 +713,7 @@ def main() -> int:
                     pending_handoff=pending,
                 )
 
-        state[str(session_id)] = entry
+        state[session_key] = entry
         save_state(state_path, state)
 
     if output is not None:

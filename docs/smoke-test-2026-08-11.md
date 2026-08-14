@@ -6,7 +6,11 @@
 
 Codex CLI discovered and installed the `codex-handoff` marketplace package from both the local checkout and the public GitHub shorthand in separate isolated `CODEX_HOME` directories. The hook was then executed from the locally installed Plugin cache, not from the source checkout. Threshold timing, safe `Stop` scheduling, the continuation-loop guard, recurring handoffs, local state, and the audit log behaved as expected.
 
-After the isolated test, the Plugin was installed in the authenticated user profile and exercised by a model-backed Codex CLI session. Codex emitted six real manual `PostCompact` events, scheduled two safe handoff continuations whose prompt text named `$codex-handoff`, produced and validated a two-entry handoff history, prevented continuation loops, and opened a clean session that independently reconciled the second handoff with Git.
+After the isolated test, the Plugin was installed in the authenticated user profile and exercised by a model-backed Codex CLI session. Codex emitted six real manual `PostCompact` events, scheduled two safe handoff continuations whose prompt text named `$codex-handoff`, produced and validated a two-entry handoff history, and prevented continuation loops. A subsequent clean session reconciled the second handoff with Git, but this run did not capture whether the composer prompt was submitted automatically or by the user.
+
+## Clean-session evidence correction, 2026-08-14
+
+The historical helper field `opened` represented only the return status from the operating-system URL opener. It did not prove thread creation, composer visibility, prompt submission, turn start, or title assignment. The official Codex deep-link reference now explicitly states that `prompt` sets initial composer text and is not sent automatically. All `opened` observations below are therefore retained as raw historical output but interpreted only as deep-link dispatch receipts.
 
 ## Identity evidence correction, 2026-08-12
 
@@ -118,7 +122,7 @@ Handoff validator     | passes | history=1/5
 Continuation Stop     | action=continuation_stop | no loop
 ```
 
-The first clean-session launch attempt returned `opened: false` after macOS reported `kLSExecutableIncorrectFormat`. The helper returned the complete manual startup prompt, demonstrating the documented non-critical fallback.
+The first clean-session launch attempt returned the historical field `opened: false` after macOS reported `kLSExecutableIncorrectFormat`. The helper returned the complete manual startup prompt, demonstrating the documented non-critical fallback.
 
 Observed second cycle:
 
@@ -127,11 +131,11 @@ PostCompact 4..6      | count=1,2,3 | pending becomes true at 6 total
 Normal Stop           | action=handoff_requested_at_safe_stop | requests=2
 Continuation          | prompt names $codex-handoff; loaded identity not captured | counter resets to 0
 Handoff validator     | passes | history=2/5
-Clean-session helper  | opened=true
+Clean-session helper  | historical `opened=true`, meaning OS deep-link dispatch only
 Continuation Stop     | action=continuation_stop | no loop
 ```
 
-The clean session created by the second `codex://new` launch read the complete handoff, inspected all available Git history, checked branch, HEAD, staged, unstaged, and untracked state, ran `git diff --check` and `git fsck --no-dangling`, and reported no conflict with repository-verifiable handoff claims. It made no repository change.
+A clean session observed after the second `codex://new` dispatch read the complete handoff, inspected all available Git history, checked branch, HEAD, staged, unstaged, and untracked state, ran `git diff --check` and `git fsck --no-dangling`, and reported no conflict with repository-verifiable handoff claims. It made no repository change. Whether that turn was started automatically is **UNKNOWN** from this run; current official documentation says deep links do not submit prompts automatically.
 
 Final source-session state:
 

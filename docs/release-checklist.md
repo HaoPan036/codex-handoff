@@ -45,7 +45,8 @@ Follow [demo.md](demo.md#host-driven-end-to-end-test) and record the Codex versi
 - [x] Confirm the active task finishes before the handoff continuation begins.
 - [x] Confirm `docs/CODEX_HANDOFF.md` passes validation.
 - [x] Confirm another three compactions can trigger a second handoff.
-- [x] Confirm the clean-session helper either opens a verified session or returns the complete fallback prompt.
+- [x] Confirm the clean-session helper separately reports OS dispatch and unverified thread/turn fields, or returns the complete fallback prompt.
+- [x] Confirm the documentation tells the user to press **Send** and does not claim automatic prompt submission.
 - [x] Confirm uninstall leaves unrelated Hook configuration unchanged.
 
 ## Publication

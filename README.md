@@ -21,7 +21,7 @@ Repeated context compaction can make it harder for Codex to know what is actuall
 
 ## Quick start
 
-The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and a real Codex host test covering Hook trust, two threshold cycles, Skill execution, validated handoff updates, loop prevention, and clean-session continuation.
+The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and real Codex host tests covering Hook trust, recurring thresholds, exact Skill identity, validated handoff updates, and loop prevention. Clean continuation is intentionally explicit: the helper opens a new composer with the startup prompt prepared, then you press **Send**.
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
@@ -53,25 +53,26 @@ A chat summary can repeat what the conversation said. Codex Handoff instead crea
 
 ## How it works
 
-The automatic lifecycle separates counting from action. `PostCompact` records a completed compaction and never steers the model. Reaching the threshold only marks a handoff as pending. The current task, tool call, test, or subagent continues until the turn naturally reaches `Stop`.
+The automatic lifecycle separates counting from action. `SessionStart` isolates `startup`, `clear`, and `resume` generations. `PostCompact` records a receipt in the current generation and never steers the model; the following `SessionStart(source=compact)` establishes the boundary that lets another compaction in the same long turn receive a distinct receipt. Duplicate delivery before that boundary is ignored. Reaching the threshold only marks a handoff as pending. The current task, tool call, test, or subagent continues until the turn naturally reaches `Stop`.
 
-At that boundary, the hook resolves its own Skill from the host-provided Plugin root (or the exact profile-installer path), verifies the Skill name, and records its SHA-256. The continuation verifies that identity again before reading the exact `SKILL.md`; it never searches for a similar handoff Skill. The workflow then inspects the repository, writes and validates the handoff, and makes a best-effort attempt to open a clean Codex session.
+At that boundary, `Stop` revalidates that the current generation contains enough receipts, then resolves its own Skill from the host-provided Plugin root (or the exact profile-installer path), verifies the Skill name, and records its SHA-256. The continuation verifies that identity again before reading the exact `SKILL.md`; it never searches for a similar handoff Skill. The workflow then inspects the repository, writes and validates the handoff, and makes a best-effort attempt to open a clean composer. The official deep-link contract pre-fills the prompt but does not send it; press **Send** to start the continuation.
 
 ### Technical flow
 
 ```mermaid
 flowchart LR
-    A[PostCompact completes] --> B[Increment session counter]
-    B --> C{Threshold reached?}
-    C -- No --> D[Continue current task]
-    C -- Yes --> E[Mark handoff pending]
-    E --> D
-    D --> F[Current turn reaches Stop]
-    F --> G[Bind exact Skill path and SHA-256]
-    G --> H[Verify identity and collect evidence]
-    H --> I[Create or update docs/CODEX_HANDOFF.md]
-    I --> J[Validate structure and bounded history]
-    J --> K[Prepare clean-session startup prompt]
+    A[SessionStart startup, clear, or resume] --> B[Start isolated generation]
+    B --> C[Record unique PostCompact receipt]
+    C --> D{Threshold reached?}
+    D -- No --> E[Continue current task]
+    D -- Yes --> F[Mark handoff pending]
+    F --> E
+    E --> G[Current turn reaches Stop]
+    G --> H[Revalidate receipts and bind exact Skill]
+    H --> I[Verify identity and collect evidence]
+    I --> J[Create and validate docs/CODEX_HANDOFF.md]
+    J --> K[Open prefilled composer]
+    K --> L[User presses Send]
 ```
 
 See [docs/design.md](docs/design.md) for the state machine, trust boundary, and evidence hierarchy.
@@ -80,10 +81,11 @@ See [docs/design.md](docs/design.md) for the state machine, trust boundary, and 
 
 With the default threshold of 3:
 
-1. Three completed `PostCompact` events are recorded for the session.
+1. Three unique `PostCompact` receipts are recorded in the current lifecycle generation.
 2. The active task continues without interruption.
 3. At the next normal `Stop`, the hook binds the continuation to its exact `codex-handoff/SKILL.md` path and SHA-256.
-4. The continuation verifies that identity, reads only that workflow, creates or updates `docs/CODEX_HANDOFF.md`, validates it, and prepares a clean continuation.
+4. The continuation verifies that identity, reads only that workflow, creates or updates `docs/CODEX_HANDOFF.md`, validates it, and prepares a clean composer.
+5. Press **Send** in that composer to start the new turn.
 
 If the exact Skill or its verifier is unavailable, automatic handoff fails clearly with `CODEX_HANDOFF_SKILL_UNAVAILABLE`; it does not substitute `handoff` or any other similarly named Skill. Manual `$codex-handoff` invocation remains explicit-only.
 
@@ -104,6 +106,8 @@ $codex-handoff handoff only
 ```
 
 Manual use follows the same evidence and safety rules as the automatic flow.
+
+The default command prepares the composer and requires **Send**. `handoff only` stops after generation and validation.
 
 ## What `CODEX_HANDOFF.md` contains
 
@@ -157,16 +161,23 @@ It:
 - installs the hook at `~/.codex/hooks/codex_handoff_hook.py`
 - backs up and updates `~/.codex/config.toml`
 - removes hook blocks from earlier `codex-handoff-session` packages
-- migrates compatible v3 compact counters when possible
-- pins both lifecycle Hook commands to the installed `~/.agents/skills/codex-handoff/SKILL.md`
+- preserves legacy lifetime totals for diagnostics while quarantining unverifiable active counters and pending flags
+- pins all four lifecycle Hook commands to the installed `~/.agents/skills/codex-handoff/SKILL.md`
+- warns when an enabled Plugin would run alongside the profile Hook
+
+Run the read-only installation diagnostic at any time:
+
+```bash
+python3 scripts/doctor.py
+```
 
 Restart Codex and review the exact hook definition after installation.
 
 ### Codex Plugin Marketplace
 
-The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. On the second cycle, `codex://new` opened a clean session that independently verified the handoff and repository state.
+The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. The second `codex://new` call proved URL dispatch; it did not itself prove thread creation or automatic prompt submission. The official contract now confirms that prompt submission always requires the user.
 
-See the [2026-08-11 lifecycle evidence and its corrected identity scope](docs/smoke-test-2026-08-11.md), plus the [2026-08-12 Skill-identity regression evidence](docs/smoke-test-2026-08-12.md).
+See the [2026-08-14 lifecycle-isolation and continuation evidence](docs/smoke-test-2026-08-14.md), the [2026-08-12 Skill-identity regression evidence](docs/smoke-test-2026-08-12.md), and the [2026-08-11 lifecycle evidence with corrected identity and deep-link scope](docs/smoke-test-2026-08-11.md).
 
 ```bash
 codex plugin marketplace add HaoPan036/codex-handoff
@@ -233,7 +244,7 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 - Packaged hook commands currently target macOS and Linux shells.
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
 - Local and public GitHub Marketplace discovery and installation have passed isolated smoke tests. Interactive Hook trust, host-emitted events, recurring threshold cycles, deterministic Skill-path and hash verification, validated handoffs, and loop prevention have passed model-backed macOS host tests. See the [identity evidence](docs/smoke-test-2026-08-12.md), the [earlier lifecycle evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
-- The `codex://new` clean-session opener is best effort. If the operating system cannot open it, the helper prints the complete startup prompt for manual use.
+- The [`codex://new` continuation opener](https://developers.openai.com/codex/app/commands/#deeplinks) is best effort. A successful OS dispatch requests a new composer with the prompt prefilled; it does not verify thread creation and never submits the prompt automatically. Press **Send**. If dispatch fails, the helper prints the complete startup prompt for manual use.
 - A validated handoff remains useful when automatic session opening is unavailable.
 
 ## Development
@@ -245,7 +256,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-The tests cover threshold behavior, exact Skill identity and failure, competing-Skill rejection, valid `Stop` JSON, safe continuation boundaries, recurring handoffs, state retention, snapshot collection, handoff validation, session-opening fallback, installer upgrades, and package metadata.
+The tests cover fresh and resumed generations, stale-state rejection, duplicate compaction delivery, recurring receipts, exact Skill identity and failure, valid `Stop` JSON, loop prevention, doctor diagnostics, snapshot collection, handoff validation, deep-link result semantics, installer upgrades, and package metadata.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/design.md](docs/design.md) before changing the lifecycle contract. See [docs/troubleshooting.md](docs/troubleshooting.md) for common installation and runtime problems.
 

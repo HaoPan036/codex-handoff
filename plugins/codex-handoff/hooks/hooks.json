@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Isolating Codex handoff lifecycle state"
+          }
+        ]
+      }
+    ],
     "PostCompact": [
       {
         "matcher": "^(manual|auto)$",
@@ -21,6 +34,18 @@
             "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
             "timeout": 10,
             "statusMessage": "Checking Codex handoff threshold"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
+            "timeout": 3,
+            "statusMessage": "Closing Codex handoff lifecycle state"
           }
         ]
       }

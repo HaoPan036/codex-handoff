@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attempt to open a clean Codex chat with a verified handoff prompt."""
+"""Prepare a clean Codex composer without claiming that a turn was started."""
 
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ def open_url(url: str) -> tuple[bool, str]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Open a clean Codex chat that starts from CODEX_HANDOFF.md."
+        description="Prepare a clean Codex composer from CODEX_HANDOFF.md."
     )
     parser.add_argument("workspace_root")
     parser.add_argument(
@@ -103,13 +103,20 @@ def main() -> int:
     url = build_url(workspace, prompt)
 
     if args.print_only:
-        opened = False
+        dispatched = False
         message = "Print-only mode requested."
     else:
-        opened, message = open_url(url)
+        dispatched, message = open_url(url)
 
     result = {
-        "opened": opened,
+        "deep_link_dispatched": dispatched,
+        "thread_creation_verified": False,
+        "prompt_prefill_requested": True,
+        "prompt_prefilled": None,
+        "prompt_submission_verified": False,
+        "turn_started_verified": False,
+        "thread_name_verified": False,
+        "user_action_required": "Press Send in the new Codex composer.",
         "workspace": str(workspace),
         "handoff": str(handoff),
         "handoff_relative_path": handoff_relative,
@@ -123,11 +130,13 @@ def main() -> int:
         print(message)
         print(f"Workspace: {workspace}")
         print(f"Handoff: {handoff_relative}")
-        if not opened:
+        if dispatched:
+            print("User action required: press Send in the new Codex composer.")
+        else:
             print("\nManual startup prompt:\n")
             print(prompt)
 
-    return 0 if opened or args.print_only else 1
+    return 0 if dispatched or args.print_only else 1
 
 
 if __name__ == "__main__":

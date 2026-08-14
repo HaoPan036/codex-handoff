@@ -12,7 +12,8 @@ Move ongoing repository work into a clean Codex session using evidence that a fr
 1. Create or update `docs/CODEX_HANDOFF.md`.
 2. Verify it against current repository evidence.
 3. Validate the document with the bundled validator.
-4. Attempt to open a clean Codex session for the same workspace.
+4. Best-effort: open a clean Codex composer with the startup prompt prepared.
+   The user must press Send to start the continuation turn.
 5. End work in the old session after reporting the result.
 
 When the user requests `handoff only`, complete steps 1 through 3 and do not open another session.
@@ -118,7 +119,7 @@ Unless the user requested `handoff only`, run:
 python3 <skill-directory>/scripts/open_new_session.py <workspace-root> docs/CODEX_HANDOFF.md --json
 ```
 
-The helper makes a best-effort attempt to pass a `codex://new` deep link to the local operating system. Automatic opening may be unavailable. When it fails, use the returned `startup_prompt` as the manual continuation prompt and report that manual action is required. A failure to open a new session does not invalidate a verified handoff.
+The helper makes a best-effort attempt to pass a `codex://new` deep link to the local operating system. The official deep-link contract pre-fills the composer and does not submit the prompt. Treat `deep_link_dispatched` only as an operating-system dispatch receipt; it does not verify thread creation, prompt submission, turn start, or thread naming. When dispatch succeeds, tell the user to press Send. When it fails, use the returned `startup_prompt` in a new Codex composer. Either outcome leaves the verified handoff valid.
 
 Do not use `/fork`. The goal is a clean session that verifies the handoff against the repository.
 
@@ -129,6 +130,7 @@ Report only:
 - Handoff path.
 - Branch and HEAD used.
 - Verification commands and results.
-- Whether a clean session was opened automatically or requires the provided startup prompt.
+- The helper's separate dispatch and verification fields.
+- `User action required: press Send` whenever a composer was prepared.
 
 Do not continue feature implementation in the old session.

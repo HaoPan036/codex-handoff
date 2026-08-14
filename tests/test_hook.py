@@ -32,23 +32,28 @@ class HookTests(unittest.TestCase):
         event: str,
         *,
         session_id: str | None = "session-1",
+        turn_id: str | None = "turn-1",
         threshold: int | None = 3,
         stop_hook_active: bool = False,
         trigger: str | None = None,
+        source: str | None = None,
         plugin_root: Path | None = PLUGIN_ROOT,
         profile_skill: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         payload: dict[str, object] = {
             "hook_event_name": event,
             "cwd": str(self.base / "workspace"),
-            "turn_id": "turn-1",
         }
         if session_id is not None:
             payload["session_id"] = session_id
+        if turn_id is not None:
+            payload["turn_id"] = turn_id
         if stop_hook_active:
             payload["stop_hook_active"] = True
         if trigger is not None:
             payload["trigger"] = trigger
+        if source is not None:
+            payload["source"] = source
 
         env = os.environ.copy()
         env["PLUGIN_DATA"] = str(self.data_dir)
@@ -76,6 +81,29 @@ class HookTests(unittest.TestCase):
             timeout=10,
             check=False,
         )
+
+    def record_compact(
+        self,
+        *,
+        turn_id: str = "turn-1",
+        threshold: int | None = 3,
+        trigger: str = "auto",
+    ) -> None:
+        result = self.run_hook(
+            "PostCompact",
+            turn_id=turn_id,
+            threshold=threshold,
+            trigger=trigger,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
+        result = self.run_hook(
+            "SessionStart",
+            turn_id=None,
+            threshold=threshold,
+            source="compact",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def state(self) -> dict[str, object]:
         return json.loads((self.data_dir / "state.json").read_text(encoding="utf-8"))
@@ -128,8 +156,7 @@ class HookTests(unittest.TestCase):
 
     def test_threshold_waits_for_stop_and_resets_counter(self) -> None:
         for _ in range(3):
-            result = self.run_hook("PostCompact")
-            self.assertEqual(result.stdout, "")
+            self.record_compact()
 
         pending = self.state()["session-1"]
         self.assertTrue(pending["pending_handoff"])
@@ -155,7 +182,7 @@ class HookTests(unittest.TestCase):
         identities = []
         for expected_request in (1, 2):
             for _ in range(3):
-                self.run_hook("PostCompact", threshold=3)
+                self.record_compact(threshold=3)
             output = json.loads(self.run_hook("Stop", threshold=3).stdout)
             self.assertEqual(output["decision"], "block")
             identities.append(self.dispatch_identity(output["reason"]))
@@ -262,8 +289,8 @@ class HookTests(unittest.TestCase):
         (self.data_dir / "config.json").write_text(
             '{"compact_threshold": 2}\n', encoding="utf-8"
         )
-        self.run_hook("PostCompact", threshold=None)
-        self.run_hook("PostCompact", threshold=None)
+        self.record_compact(threshold=None)
+        self.record_compact(threshold=None)
         output = json.loads(self.run_hook("Stop", threshold=None).stdout)
         self.assertEqual(output["decision"], "block")
         self.assertIn("threshold of 2", output["reason"])
@@ -322,6 +349,143 @@ class HookTests(unittest.TestCase):
         self.assertIn("name: codex-handoff", skill_text)
         self.assertIn("allow_implicit_invocation: false", openai_yaml)
         self.assertIn("default_prompt:", openai_yaml)
+
+    def test_fresh_session_with_zero_compacts_never_requests_handoff(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        for index in range(10):
+            output = json.loads(
+                self.run_hook("Stop", turn_id=f"turn-{index}").stdout
+            )
+            self.assertEqual(output, {"continue": True})
+
+        entry = self.state()["session-1"]
+        self.assertEqual(entry["compact_count_since_handoff"], 0)
+        self.assertEqual(entry["compact_receipts"], [])
+        self.assertFalse(entry["pending_handoff"])
+        self.assertEqual(entry["handoff_requests"], 0)
+
+    def test_startup_rejects_stale_pending_state(self) -> None:
+        self.data_dir.mkdir(parents=True)
+        (self.data_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "session-1": {
+                        "compact_count_since_handoff": 3,
+                        "total_compactions": 3,
+                        "pending_handoff": True,
+                        "handoff_requests": 0,
+                        "cwd": "/old-workspace",
+                        "updated_at": time.time(),
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        output = json.loads(self.run_hook("Stop", turn_id="fresh-turn").stdout)
+        self.assertEqual(output, {"continue": True})
+        entry = self.state()["session-1"]
+        self.assertEqual(entry["generation_source"], "startup")
+        self.assertEqual(entry["compact_receipts"], [])
+        self.assertEqual(entry["legacy_unverified_compact_count"], 3)
+        self.assertFalse(entry["pending_handoff"])
+
+    def test_clear_starts_new_generation_and_resets_compact_evidence(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        self.record_compact(turn_id="turn-before-clear")
+        self.record_compact(turn_id="turn-before-clear")
+        previous_generation = self.state()["session-1"]["generation_id"]
+
+        self.run_hook("SessionStart", turn_id=None, source="clear")
+        self.record_compact(turn_id="turn-after-clear")
+        output = json.loads(self.run_hook("Stop", turn_id="turn-after-clear").stdout)
+
+        self.assertEqual(output, {"continue": True})
+        entry = self.state()["session-1"]
+        self.assertNotEqual(entry["generation_id"], previous_generation)
+        self.assertEqual(entry["generation_source"], "clear")
+        self.assertEqual(entry["compact_count_since_handoff"], 1)
+
+    def test_genuine_threshold_with_compact_boundaries_requests_once(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        for _ in range(3):
+            self.record_compact(turn_id="same-long-turn")
+
+        first = json.loads(self.run_hook("Stop", turn_id="same-long-turn").stdout)
+        second = json.loads(self.run_hook("Stop", turn_id="next-turn").stdout)
+        self.assertEqual(first["decision"], "block")
+        self.assertEqual(second, {"continue": True})
+        self.assertEqual(self.state()["session-1"]["handoff_requests"], 1)
+
+    def test_duplicate_postcompact_payload_counts_only_once(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        self.run_hook("PostCompact", turn_id="turn-duplicate", trigger="auto")
+        self.run_hook("PostCompact", turn_id="turn-duplicate", trigger="auto")
+
+        entry = self.state()["session-1"]
+        self.assertEqual(entry["compact_count_since_handoff"], 1)
+        self.assertEqual(len(entry["compact_receipts"]), 1)
+        self.assertTrue(self.events()[-1]["duplicate"])
+
+    def test_recurring_handoffs_use_independent_receipts(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        receipt_sets = []
+        for cycle in range(2):
+            for _ in range(3):
+                self.record_compact(turn_id=f"turn-{cycle}")
+            receipt_sets.append(
+                {
+                    receipt["receipt_id"]
+                    for receipt in self.state()["session-1"]["compact_receipts"]
+                }
+            )
+            output = json.loads(
+                self.run_hook("Stop", turn_id=f"turn-{cycle}").stdout
+            )
+            self.assertEqual(output["decision"], "block")
+
+        self.assertTrue(receipt_sets[0].isdisjoint(receipt_sets[1]))
+        self.assertEqual(self.state()["session-1"]["handoff_requests"], 2)
+
+    def test_resume_cannot_inherit_pending_from_previous_generation(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        for _ in range(3):
+            self.record_compact(turn_id="old-turn")
+        self.assertTrue(self.state()["session-1"]["pending_handoff"])
+
+        self.run_hook("SessionStart", turn_id=None, source="resume")
+        output = json.loads(self.run_hook("Stop", turn_id="resumed-turn").stdout)
+        self.assertEqual(output, {"continue": True})
+        entry = self.state()["session-1"]
+        self.assertEqual(entry["generation_source"], "resume")
+        self.assertEqual(entry["compact_receipts"], [])
+        self.assertFalse(entry["pending_handoff"])
+
+    def test_stop_revalidates_receipts_instead_of_trusting_pending_flag(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        state = self.state()
+        state["session-1"]["pending_handoff"] = True
+        (self.data_dir / "state.json").write_text(
+            json.dumps(state), encoding="utf-8"
+        )
+
+        output = json.loads(self.run_hook("Stop", turn_id="safe-stop").stdout)
+        self.assertEqual(output, {"continue": True})
+        self.assertFalse(self.state()["session-1"]["pending_handoff"])
+        self.assertEqual(self.events()[-1]["action"], "stale_pending_rejected")
+
+    def test_session_end_deactivates_generation(self) -> None:
+        self.run_hook("SessionStart", turn_id=None, source="startup")
+        for _ in range(3):
+            self.record_compact(turn_id="ending-turn")
+        self.run_hook("SessionEnd", turn_id=None)
+
+        output = json.loads(self.run_hook("Stop", turn_id="late-stop").stdout)
+        self.assertEqual(output, {"continue": True})
+        entry = self.state()["session-1"]
+        self.assertFalse(entry["generation_active"])
+        self.assertFalse(entry["pending_handoff"])
 
 
 if __name__ == "__main__":

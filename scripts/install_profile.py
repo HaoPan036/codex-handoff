@@ -117,6 +117,18 @@ def build_config(
     block = f"""
 
 {BEGIN_MARKER}
+# SessionStart isolates startup, clear, and resume generations. A compact start
+# acknowledges the preceding PostCompact receipt so repeated payloads can be
+# distinguished from multiple compactions inside one long turn.
+[[hooks.SessionStart]]
+matcher = "^(startup|resume|clear|compact)$"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = {quoted_command}
+timeout = 10
+statusMessage = "Isolating Codex handoff lifecycle state"
+
 # PostCompact records only completed compactions.
 # Stop schedules the handoff after the current turn reaches a safe boundary.
 [[hooks.PostCompact]]
@@ -135,6 +147,14 @@ type = "command"
 command = {quoted_command}
 timeout = 10
 statusMessage = "Checking Codex handoff threshold"
+
+[[hooks.SessionEnd]]
+
+[[hooks.SessionEnd.hooks]]
+type = "command"
+command = {quoted_command}
+timeout = 3
+statusMessage = "Closing Codex handoff lifecycle state"
 {END_MARKER}
 """
     candidate = text + block
@@ -157,6 +177,21 @@ def safe_nonnegative_int(value: object) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, parsed)
+
+
+def plugin_installation_active(config_text: str) -> bool:
+    try:
+        value = tomllib.loads(config_text) if config_text.strip() else {}
+    except tomllib.TOMLDecodeError:
+        return False
+    plugins = value.get("plugins")
+    if not isinstance(plugins, dict):
+        return False
+    for key in ("codex-handoff@codex-handoff", "codex-handoff"):
+        entry = plugins.get(key)
+        if isinstance(entry, dict) and entry.get("enabled") is True:
+            return True
+    return False
 
 
 def migrate_legacy_state(codex_home: Path, data_dir: Path) -> bool:
@@ -189,9 +224,12 @@ def migrate_legacy_state(codex_home: Path, data_dir: Path) -> bool:
             raw_entry.get("handoff_requested_at_count")
         )
         migrated[str(session_id)] = {
-            "compact_count_since_handoff": max(0, total - requested_at),
+            # Legacy counts have no generation-bound receipts. Preserve them as
+            # diagnostic history, but never let them authorize a continuation.
+            "compact_count_since_handoff": 0,
             "total_compactions": total,
-            "pending_handoff": bool(raw_entry.get("pending_handoff", False)),
+            "legacy_unverified_compact_count": max(0, total - requested_at),
+            "pending_handoff": False,
             "handoff_requests": 1 if requested_at > 0 else 0,
             "cwd": str(raw_entry.get("cwd") or ""),
             "updated_at": float(raw_entry.get("updated_at", time.time()) or time.time()),
@@ -250,6 +288,7 @@ def main() -> int:
     data_dir = codex_home / "codex-handoff"
 
     original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    duplicate_plugin_risk = plugin_installation_active(original)
     try:
         candidate = build_config(
             original=original,
@@ -296,6 +335,13 @@ def main() -> int:
     print(f"Config: {config_path}")
     print(f"Compact threshold: {args.threshold}")
     print(f"State directory: {data_dir}")
+    if duplicate_plugin_risk:
+        print(
+            "WARNING: the Codex Handoff Plugin is enabled while this profile Hook "
+            "installation is active. Codex loads both sources, which can execute "
+            "handoffs twice. Disable one installation and run scripts/doctor.py.",
+            file=sys.stderr,
+        )
     if config_backup is not None:
         print(f"Config backup: {config_backup}")
     if migrated:

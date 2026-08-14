@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "scripts" / "install_profile.py"
 UNINSTALL = ROOT / "scripts" / "uninstall_profile.py"
+DOCTOR = ROOT / "scripts" / "doctor.py"
 
 
 class InstallerTests(unittest.TestCase):
@@ -112,7 +113,10 @@ trust_level = "trusted"
                 )
             )
             self.assertEqual(
-                migrated["session-1"]["compact_count_since_handoff"], 2
+                migrated["session-1"]["compact_count_since_handoff"], 0
+            )
+            self.assertEqual(
+                migrated["session-1"]["legacy_unverified_compact_count"], 2
             )
             self.assertEqual(migrated["session-1"]["total_compactions"], 5)
 
@@ -162,6 +166,61 @@ trust_level = "trusted"
             )
             self.assertEqual(result.returncode, 2)
             self.assertIn("at least 1", result.stderr)
+
+    def test_doctor_reports_plugin_and_profile_duplicate_risk(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            codex_home = base / "codex"
+            workspace = base / "workspace"
+            home.mkdir()
+            codex_home.mkdir()
+            workspace.mkdir()
+            (codex_home / "config.toml").write_text(
+                """[plugins.\"codex-handoff@codex-handoff\"]
+enabled = true
+
+[[hooks.PostCompact]]
+matcher = \"^(manual|auto)$\"
+[[hooks.PostCompact.hooks]]
+type = \"command\"
+command = \"CODEX_HANDOFF_SKILL_PATH=/tmp/SKILL.md python3 /tmp/codex_handoff_hook.py\"
+""",
+                encoding="utf-8",
+            )
+
+            result = self.run_script(
+                DOCTOR,
+                "--home",
+                str(home),
+                "--codex-home",
+                str(codex_home),
+                "--workspace",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertTrue(report["plugin_installation"]["active"])
+            self.assertTrue(report["profile_installation"]["active"])
+            self.assertTrue(report["possible_duplicate_execution_risk"])
+            self.assertIn("plugin", report["active_hook_sources"])
+            self.assertIn("profile", report["active_hook_sources"])
+
+            install_result = self.run_script(
+                INSTALL,
+                "--home",
+                str(home),
+                "--codex-home",
+                str(codex_home),
+            )
+            self.assertEqual(
+                install_result.returncode,
+                0,
+                install_result.stdout + install_result.stderr,
+            )
+            self.assertIn("WARNING", install_result.stderr)
+            self.assertIn("execute handoffs twice", install_result.stderr)
 
 
 if __name__ == "__main__":
