@@ -132,7 +132,16 @@ Sections 1 through 10 are replaced with the current verified state. Section 11 p
 
 ## Clean-session opening
 
-The helper constructs a startup prompt and makes a best-effort attempt to pass a `codex://new` URL to the operating system. Its result separates OS dispatch from thread creation, prompt prefill, prompt submission, turn start, and thread naming. The official [desktop deep-link contract](https://developers.openai.com/codex/app/commands/#deeplinks) sets initial composer text but does not send it. The default product path is therefore:
+The workflow constructs a startup prompt and separates native task creation, OS dispatch, prompt prefill, prompt submission, turn start, and thread naming. In the Codex desktop app, it uses native task listing plus titled task creation: the current explicit title is treated as untrusted data, its trailing sequence is incremented, and the title is applied as the clean task is created. The desktop path is:
+
+```text
+verified handoff
+  -> resolve exact source task title
+  -> increment familiar sequence
+  -> create local clean task with title and startup prompt
+```
+
+When native task controls are unavailable, the helper uses the official [desktop deep-link contract](https://developers.openai.com/codex/app/commands/#deeplinks), which sets initial composer text but does not send it:
 
 ```text
 verified handoff
@@ -141,7 +150,7 @@ verified handoff
   -> user presses Send
 ```
 
-Dispatch failure returns the full startup prompt for manual use, while the verified handoff remains complete. The official [App Server protocol](https://developers.openai.com/codex/app-server/) can acknowledge `thread/start`, `turn/start`, and `thread/name/set`, and a disposable macOS test found that resulting thread in Desktop history. It is not the default path: starting a model turn from a separate App Server client has a larger permission, configuration, and future-compatibility surface than the canonical user-reviewed composer flow.
+Dispatch failure returns the full startup prompt for manual use, while the verified handoff remains complete. Outside a restricted nested Host sandbox, the portable helper can use stable App Server `thread/read` to resolve an explicit source name. If SQLite initialization is blocked by the sandbox, it reports that failure and falls back to the workspace name rather than claiming title verification.
 
 ## Duplicate installation diagnostics
 

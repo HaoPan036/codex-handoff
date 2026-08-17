@@ -79,7 +79,7 @@ Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hoo
 
 ## A new composer opened but the continuation did not start
 
-This is the expected deep-link contract. `codex://new?...&prompt=...` opens a new local composer and sets its initial text; it does not submit the prompt. Press **Send** to start the continuation.
+This is the expected portable deep-link contract. `codex://new?...&prompt=...` opens a new local composer and sets its initial text; it does not submit the prompt. Press **Send** to start the continuation. Codex desktop normally uses native titled task creation instead when its task controls are available.
 
 The helper reports these layers separately:
 
@@ -94,7 +94,13 @@ thread_name_verified
 user_action_required
 ```
 
-`deep_link_dispatched=true` means only that the operating system accepted the URL. It is not proof of thread creation, prompt submission, turn start, or title assignment. The helper does not set a title, so title behavior is `UNKNOWN` unless independently verified by the Host.
+`deep_link_dispatched=true` means only that the operating system accepted the URL. It is not proof of thread creation, prompt submission, turn start, or title assignment. Only a successful native task-creation receipt can verify that the requested title was applied at creation.
+
+## The next task did not inherit my numbered title
+
+The desktop workflow matches the exact source task id, treats its title as untrusted data, and increments only a trailing integer that is not part of a dotted or hyphenated version. Examples: `KB` becomes `KB2`, `KB2` becomes `KB3`, while `release-v0.1.0` becomes `release-v0.1.02` only when explicitly supplied as a task title; a workspace-name fallback simply appends `2`.
+
+In a restricted CLI or App Server continuation, nested App Server startup may be unable to initialize the Codex SQLite state. The helper reports this in `name_lookup_message` and falls back to the workspace name. Use `--source-thread-name "My Task2"` to supply an explicit portable title manually.
 
 ## A new composer does not open
 

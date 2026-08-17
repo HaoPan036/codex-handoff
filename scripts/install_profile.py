@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--threshold",
         type=int,
-        default=3,
+        default=5,
         help="Completed compactions before a handoff is scheduled. Default: 3.",
     )
     parser.add_argument(

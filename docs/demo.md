@@ -22,11 +22,11 @@ Use a disposable repository containing no credentials, private remotes, personal
 3. Install Codex Handoff through `/plugins` or the ChatGPT desktop Plugins Directory.
 4. Start a new Codex session in the disposable repository.
 5. Open `/hooks`, review the exact `PostCompact` and `Stop` commands, and trust them.
-6. Set the threshold to a small value for the test and trigger that number of completed compactions.
+6. Set the threshold to a small value for the test and trigger that number of completed compactions. For every cycle, wait for both the `contextCompaction` item and its Turn to complete, record or announce that completion, and only then issue the next compact request.
 7. Confirm the active task reaches a normal `Stop` before the handoff continuation starts.
 8. Confirm the continuation is bound to the exact `codex-handoff` Skill path and that its identity verifier succeeds.
 9. Confirm `docs/CODEX_HANDOFF.md` is created and passes the bundled validator.
-10. Confirm the helper either dispatches a deep link or returns the complete manual startup prompt. If a composer opens, confirm the prompt is prepared and record that the user must press **Send**; do not treat OS dispatch as proof that a turn started.
+10. On desktop, confirm native task creation applies the expected incremented title. On a portable Host, confirm the helper either dispatches a deep link or returns the complete manual startup prompt. If a composer opens, confirm the prompt is prepared and record that the user must press **Send**; do not treat OS dispatch as proof that a turn started.
 11. Repeat the threshold cycle and confirm a second handoff can be requested without a continuation loop.
 
 Record the Codex version, operating system, installation mode, threshold, and exact result in the release notes or a dedicated smoke-test record.

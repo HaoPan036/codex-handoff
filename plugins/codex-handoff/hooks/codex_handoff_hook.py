@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, TextIO
 
-DEFAULT_THRESHOLD = 3
+DEFAULT_THRESHOLD = 5
 RETENTION_SECONDS = 30 * 24 * 60 * 60
 MAX_LOG_BYTES = 1_000_000
 MAX_ACTIVE_RECEIPTS = 256
@@ -467,9 +467,16 @@ def build_handoff_reason(
     total_compactions: int,
     threshold: int,
     identity: dict[str, str],
+    source_thread_id: str,
 ) -> str:
     dispatch = json.dumps(
         identity, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    )
+    context = json.dumps(
+        {"source_thread_id": source_thread_id},
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
     )
     verifier_command = " ".join(
         [
@@ -483,6 +490,7 @@ def build_handoff_reason(
     return f"""The current turn has finished at a safe Stop boundary. This Codex session completed {compact_count} context compactions since its previous handoff, reaching the configured threshold of {threshold}. The session has completed {total_compactions} compactions in total.
 
 CODEX_HANDOFF_DISPATCH={dispatch}
+CODEX_HANDOFF_CONTEXT={context}
 
 The automatic workflow identity is fixed by the dispatch record above. Before any handoff work:
 
@@ -671,6 +679,7 @@ def main() -> int:
                             total_compactions=total_compactions,
                             threshold=threshold,
                             identity=identity,
+                            source_thread_id=session_key,
                         ),
                     }
                     append_event(

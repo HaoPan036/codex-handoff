@@ -167,6 +167,21 @@ trust_level = "trusted"
             self.assertEqual(result.returncode, 2)
             self.assertIn("at least 1", result.stderr)
 
+    def test_installer_default_threshold_is_five(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_script(
+                INSTALL,
+                "--home",
+                str(base / "home"),
+                "--codex-home",
+                str(base / "codex"),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Compact threshold: 5", result.stdout)
+            config = (base / "codex" / "config.toml").read_text(encoding="utf-8")
+            self.assertIn("CODEX_HANDOFF_COMPACT_THRESHOLD=5", config)
+
     def test_doctor_reports_plugin_and_profile_duplicate_risk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

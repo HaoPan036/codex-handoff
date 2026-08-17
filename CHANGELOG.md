@@ -17,6 +17,8 @@ All notable changes are documented here.
 ### Changed
 
 - Documented the official composer behavior: the deep link prepares the startup prompt, and the user presses **Send** to start the continuation.
+- Raised the default compact threshold from three completed compactions to five.
+- Codex desktop continuation now uses native titled task creation to carry an explicit source title forward with the next familiar sequence; portable hosts retain a transparent workspace-name fallback.
 
 ## 0.1.1, 2026-08-12
 

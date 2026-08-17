@@ -21,7 +21,7 @@ Repeated context compaction can make it harder for Codex to know what is actuall
 
 ## Quick start
 
-The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and real Codex host tests covering Hook trust, recurring thresholds, exact Skill identity, validated handoff updates, and loop prevention. Clean continuation is intentionally explicit: the helper opens a new composer with the startup prompt prepared, then you press **Send**.
+The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and real Codex host tests covering Hook trust, recurring thresholds, exact Skill identity, validated handoff updates, and loop prevention. In the desktop app, a clean continuation can be created with its numbered title already applied; portable hosts retain the explicit prefilled-composer path where you press **Send**.
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
@@ -55,7 +55,7 @@ A chat summary can repeat what the conversation said. Codex Handoff instead crea
 
 The automatic lifecycle separates counting from action. `SessionStart` isolates `startup`, `clear`, and `resume` generations. `PostCompact` records a receipt in the current generation and never steers the model; the following `SessionStart(source=compact)` establishes the boundary that lets another compaction in the same long turn receive a distinct receipt. Duplicate delivery before that boundary is ignored. Reaching the threshold only marks a handoff as pending. The current task, tool call, test, or subagent continues until the turn naturally reaches `Stop`.
 
-At that boundary, `Stop` revalidates that the current generation contains enough receipts, then resolves its own Skill from the host-provided Plugin root (or the exact profile-installer path), verifies the Skill name, and records its SHA-256. The continuation verifies that identity again before reading the exact `SKILL.md`; it never searches for a similar handoff Skill. The workflow then inspects the repository, writes and validates the handoff, and makes a best-effort attempt to open a clean composer. The official deep-link contract pre-fills the prompt but does not send it; press **Send** to start the continuation.
+At that boundary, `Stop` revalidates that the current generation contains enough receipts, then resolves its own Skill from the host-provided Plugin root (or the exact profile-installer path), verifies the Skill name, and records its SHA-256. The continuation verifies that identity again before reading the exact `SKILL.md`; it never searches for a similar handoff Skill. The workflow then inspects the repository, writes and validates the handoff, and uses native titled task creation when available. The portable deep-link fallback only pre-fills the prompt and requires **Send**.
 
 ### Technical flow
 
@@ -71,21 +71,25 @@ flowchart LR
     G --> H[Revalidate receipts and bind exact Skill]
     H --> I[Verify identity and collect evidence]
     I --> J[Create and validate docs/CODEX_HANDOFF.md]
-    J --> K[Open prefilled composer]
-    K --> L[User presses Send]
+    J --> K[Resolve the next familiar task name]
+    K --> L{Native task controls available?}
+    L -- Yes --> M[Create titled clean task]
+    L -- No --> N[Open prefilled composer]
+    N --> O[User presses Send]
 ```
 
 See [docs/design.md](docs/design.md) for the state machine, trust boundary, and evidence hierarchy.
 
 ## Automatic handoff
 
-With the default threshold of 3:
+With the default threshold of 5:
 
-1. Three unique `PostCompact` receipts are recorded in the current lifecycle generation.
+1. Five unique completed `PostCompact` receipts are recorded in the current lifecycle generation.
 2. The active task continues without interruption.
 3. At the next normal `Stop`, the hook binds the continuation to its exact `codex-handoff/SKILL.md` path and SHA-256.
-4. The continuation verifies that identity, reads only that workflow, creates or updates `docs/CODEX_HANDOFF.md`, validates it, and prepares a clean composer.
-5. Press **Send** in that composer to start the new turn.
+4. The continuation verifies that identity, reads only that workflow, creates or updates `docs/CODEX_HANDOFF.md`, validates it, and prepares a clean continuation.
+5. In the Codex desktop app, native task controls copy the current explicit title, calculate the next familiar sequence (`Name` → `Name2`, `Name2` → `Name3`), and apply it while creating the clean task. If no title is available, the workspace name is used.
+6. On hosts without native task creation, the portable helper opens a prefilled composer instead; press **Send**, and its first instruction requests the calculated title when task-title control is available.
 
 If the exact Skill or its verifier is unavailable, automatic handoff fails clearly with `CODEX_HANDOFF_SKILL_UNAVAILABLE`; it does not substitute `handoff` or any other similarly named Skill. Manual `$codex-handoff` invocation remains explicit-only.
 
@@ -107,7 +111,7 @@ $codex-handoff handoff only
 
 Manual use follows the same evidence and safety rules as the automatic flow.
 
-The default command prepares the composer and requires **Send**. `handoff only` stops after generation and validation.
+The default command creates a titled clean task when native task controls are available; otherwise it prepares a composer and requires **Send**. `handoff only` stops after generation and validation.
 
 ## What `CODEX_HANDOFF.md` contains
 
@@ -221,7 +225,7 @@ Create `~/.codex/codex-handoff.json`:
 
 ```json
 {
-  "compact_threshold": 3
+  "compact_threshold": 5
 }
 ```
 
@@ -245,6 +249,7 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
 - Local and public GitHub Marketplace discovery and installation have passed isolated smoke tests. Interactive Hook trust, host-emitted events, recurring threshold cycles, deterministic Skill-path and hash verification, validated handoffs, and loop prevention have passed model-backed macOS host tests. See the [identity evidence](docs/smoke-test-2026-08-12.md), the [earlier lifecycle evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
 - The [`codex://new` continuation opener](https://developers.openai.com/codex/app/commands/#deeplinks) is best effort. A successful OS dispatch requests a new composer with the prompt prefilled; it does not verify thread creation and never submits the prompt automatically. Press **Send**. If dispatch fails, the helper prints the complete startup prompt for manual use.
+- The desktop path uses native task listing and titled task creation, so the numbered title is applied at creation. The portable path may use stable App Server `thread/read`, but a restricted nested Host sandbox can prevent that lookup; it then falls back to the workspace name. Requested and verified title fields remain separate.
 - A validated handoff remains useful when automatic session opening is unavailable.
 
 ## Development

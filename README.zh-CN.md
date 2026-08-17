@@ -21,7 +21,7 @@
 
 ## 快速开始
 
-用户级安装脚本仍是最短的安装路径。Plugin 包已经通过隔离的 CLI 安装检查和真实 Codex host 测试，覆盖 Hook trust、重复阈值周期、精确 Skill identity、经过校验的 handoff 更新和防循环。干净续接保持显式：helper 打开预填启动提示词的新 composer，随后由用户按 **Send**。
+用户级安装脚本仍是最短的安装路径。Plugin 包已经通过隔离的 CLI 安装检查和真实 Codex host 测试，覆盖 Hook trust、重复阈值周期、精确 Skill identity、经过校验的 handoff 更新和防循环。桌面端可以在创建干净任务时直接带上递增标题；便携 Host 仍保留显式的预填 composer 路径，由用户按 **Send**。
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
@@ -55,7 +55,7 @@ $codex-handoff
 
 自动流程把计数和行动分开。`SessionStart` 会隔离 `startup`、`clear` 和 `resume` generation。`PostCompact` 只在当前 generation 记录 receipt，不改变模型行为；随后到来的 `SessionStart(source=compact)` 建立下一次 receipt 的边界，因此同一个长 Turn 中的多次真实 compaction 仍可分别计数，而边界前的重复投递只算一次。达到阈值以后，Hook 只把状态记为待交接。当前任务、tool call、测试和 subagent 都会继续，直到 Turn 自然到达 `Stop`。
 
-到了这个边界，`Stop` 会重新验证当前 generation 确实拥有足够的 receipts，再根据 Host 提供的 Plugin root（或 profile installer 写入的精确路径）定位自己的 Skill，校验 Skill 名称并记录 SHA-256。Continuation 会再次验证这份 identity，再读取精确的 `SKILL.md`；它不会搜索名称相似的 handoff Skill。随后 workflow 检查仓库、写入并校验交接文件，再尽力打开预填 composer。官方 deep-link contract 只负责预填，不会自动发送；需要用户按 **Send** 才会启动续接。
+到了这个边界，`Stop` 会重新验证当前 generation 确实拥有足够的 receipts，再根据 Host 提供的 Plugin root（或 profile installer 写入的精确路径）定位自己的 Skill，校验 Skill 名称并记录 SHA-256。Continuation 会再次验证这份 identity，再读取精确的 `SKILL.md`；它不会搜索名称相似的 handoff Skill。随后 workflow 检查仓库、写入并校验交接文件，并在可用时使用原生的带标题任务创建。便携 deep-link 回退只负责预填，需要用户按 **Send**。
 
 ### 技术流程
 
@@ -71,21 +71,25 @@ flowchart LR
     G --> H[重验 receipts 并绑定精确 Skill]
     H --> I[验证 identity 并收集证据]
     I --> J[创建并校验 docs/CODEX_HANDOFF.md]
-    J --> K[打开预填 composer]
-    K --> L[用户按 Send]
+    J --> K[计算下一个习惯任务名]
+    K --> L{原生任务控制可用?}
+    L -- 是 --> M[创建带标题的干净任务]
+    L -- 否 --> N[打开预填 composer]
+    N --> O[用户按 Send]
 ```
 
 [docs/design.md](docs/design.md) 详细记录了状态机、信任边界和证据优先级。
 
 ## 自动交接
 
-默认阈值为 3，流程如下。
+默认阈值为 5，流程如下。
 
-1. 当前 lifecycle generation 记录到 3 个唯一 `PostCompact` receipts。
+1. 当前 lifecycle generation 记录到 5 个已经完成的唯一 `PostCompact` receipts。
 2. 当前任务继续执行，不会被中途打断。
 3. Turn 自然到达下一次 `Stop` 时，Hook 把 continuation 绑定到精确的 `codex-handoff/SKILL.md` 路径和 SHA-256。
-4. Continuation 验证 identity，只读取这份 workflow，再创建或更新 `docs/CODEX_HANDOFF.md`、完成校验并准备干净的 composer。
-5. 用户在该 composer 中按 **Send**，启动新的 Turn。
+4. Continuation 验证 identity，只读取这份 workflow，再创建或更新 `docs/CODEX_HANDOFF.md`、完成校验并准备干净的续接环境。
+5. 在 Codex 桌面端，原生任务控制会读取当前明确标题，计算下一个习惯序号（`名称` → `名称2`，`名称2` → `名称3`），并在创建干净任务时直接应用；没有标题时使用 workspace 名称。
+6. 不支持原生任务创建的 Host 会回退到预填 composer；用户按 **Send** 后，第一条指令会在 task-title control 可用时请求这个名称。
 
 如果精确的 Skill 或 identity verifier 不可用，自动交接会明确报告 `CODEX_HANDOFF_SKILL_UNAVAILABLE`，不会替换成 `handoff` 或其他相似 Skill。手工 `$codex-handoff` 仍保持 explicit-only。
 
@@ -107,7 +111,7 @@ $codex-handoff handoff only
 
 手动调用与自动流程遵守同一套证据和安全规则。
 
-默认命令会准备 composer，并明确要求用户按 **Send**；`handoff only` 在生成和校验完成后结束。
+默认命令会在原生任务控制可用时创建带标题的干净任务；否则准备 composer 并要求用户按 **Send**。`handoff only` 在生成和校验完成后结束。
 
 ## `CODEX_HANDOFF.md` 包含什么
 
@@ -221,7 +225,7 @@ bash install.sh 5
 
 ```json
 {
-  "compact_threshold": 3
+  "compact_threshold": 5
 }
 ```
 
@@ -245,6 +249,7 @@ bash install.sh 5
 - Codex Plugin 可用于 Codex CLI 和 ChatGPT 桌面端，IDE Extension 暂不支持。IDE Extension 可以使用用户级安装脚本。
 - 本地和公开 GitHub Marketplace 的发现与安装已通过隔离冒烟测试。交互式 Hook trust、host 发出的事件、重复阈值周期、确定性的 Skill 路径与 hash 校验、handoff 校验和防循环也已通过由模型驱动的 macOS host 测试。相关材料见 [identity 测试记录](docs/smoke-test-2026-08-12.md)、[较早的 lifecycle 记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
 - [`codex://new` 续接能力](https://developers.openai.com/codex/app/commands/#deeplinks)采用尽力而为策略。OS dispatch 成功表示请求打开预填 prompt 的新 composer，不代表已验证 thread 创建，也绝不会自动提交 prompt。请按 **Send**。dispatch 失败时，helper 会输出完整的手动启动提示词。
+- 桌面端使用原生任务列表和带标题的任务创建，因此序号标题会在创建时直接应用。便携回退路径可以使用稳定的 App Server `thread/read`，但受限的嵌套 Host sandbox 可能阻止这次读取，此时会回退为 workspace 名称。请求名称与已验证名称仍分开报告。
 - 自动打开失败不会影响已经校验完成的 handoff 文件。
 
 ## 开发与验证
