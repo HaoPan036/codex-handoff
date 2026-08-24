@@ -3,7 +3,8 @@
 
 The hook has two responsibilities only:
 
-1. Count generation-bound, deduplicated PostCompact receipts.
+1. Count generation-bound, deduplicated PostCompact receipts outside a
+   handoff continuation.
 2. At the next Stop event after the threshold, bind one continuation to the
    exact bundled ``codex-handoff`` workflow file.
 
@@ -285,6 +286,11 @@ def normalize_entry(
             if has_current_schema
             else False
         ),
+        "handoff_continuation_active": (
+            bool(existing.get("handoff_continuation_active", False))
+            if has_current_schema
+            else False
+        ),
         "handoff_requests": nonnegative_int(existing.get("handoff_requests")),
         "cwd": str(existing.get("cwd") or cwd),
         "updated_at": timestamp_value(existing.get("updated_at"), time.time()),
@@ -314,6 +320,7 @@ def start_generation(
             "compact_receipts": [],
             "compact_count_since_handoff": 0,
             "pending_handoff": False,
+            "handoff_continuation_active": False,
         }
     )
     return entry
@@ -549,11 +556,14 @@ def main() -> int:
                 entry["compact_sequence"] += 1
                 confirmed = bool(entry["awaiting_compact_start"])
                 entry["awaiting_compact_start"] = False
-                action = (
-                    "compact_boundary_confirmed"
-                    if confirmed
-                    else "compact_boundary_without_receipt"
-                )
+                if entry["handoff_continuation_active"]:
+                    action = "handoff_continuation_compact_boundary_ignored"
+                else:
+                    action = (
+                        "compact_boundary_confirmed"
+                        if confirmed
+                        else "compact_boundary_without_receipt"
+                    )
             else:
                 action = "unknown_session_start_source"
 
@@ -574,6 +584,7 @@ def main() -> int:
         elif event == "SessionEnd":
             entry["generation_active"] = False
             entry["pending_handoff"] = False
+            entry["handoff_continuation_active"] = False
             append_event(
                 event_log_path,
                 payload,
@@ -590,7 +601,8 @@ def main() -> int:
                 item["receipt_id"] for item in entry["compact_receipts"]
             }
             duplicate = receipt["receipt_id"] in existing_ids
-            if not duplicate:
+            continuation_compact = bool(entry["handoff_continuation_active"])
+            if not duplicate and not continuation_compact:
                 entry["compact_receipts"].append(receipt)
                 receipt_capacity = max(MAX_ACTIVE_RECEIPTS, threshold)
                 if len(entry["compact_receipts"]) > receipt_capacity:
@@ -602,13 +614,24 @@ def main() -> int:
                 )
                 entry["total_compactions"] += 1
                 entry["awaiting_compact_start"] = True
-            if entry["compact_count_since_handoff"] >= threshold:
+            if (
+                not continuation_compact
+                and entry["compact_count_since_handoff"] >= threshold
+            ):
                 entry["pending_handoff"] = True
 
             append_event(
                 event_log_path,
                 payload,
-                action=("duplicate_compact_ignored" if duplicate else "compact_recorded"),
+                action=(
+                    "handoff_continuation_compact_ignored"
+                    if continuation_compact
+                    else (
+                        "duplicate_compact_ignored"
+                        if duplicate
+                        else "compact_recorded"
+                    )
+                ),
                 generation_id=entry["generation_id"],
                 generation_source=entry["generation_source"],
                 receipt_id=receipt["receipt_id"],
@@ -617,6 +640,9 @@ def main() -> int:
                 total_compactions=entry["total_compactions"],
                 threshold=threshold,
                 pending_handoff=entry["pending_handoff"],
+                handoff_continuation_active=entry[
+                    "handoff_continuation_active"
+                ],
             )
 
         elif event == "Stop":
@@ -644,6 +670,7 @@ def main() -> int:
                 if identity is None:
                     expected, resolver = expected_skill_file()
                     entry["pending_handoff"] = False
+                    entry["handoff_continuation_active"] = True
                     output = {
                         "decision": "block",
                         "reason": build_skill_unavailable_reason(
@@ -665,6 +692,7 @@ def main() -> int:
                     )
                 else:
                     entry["pending_handoff"] = False
+                    entry["handoff_continuation_active"] = True
                     entry["compact_count_since_handoff"] = 0
                     entry["compact_receipts"] = []
                     entry["last_handoff_receipt_ids"] = [
@@ -700,6 +728,8 @@ def main() -> int:
                     )
             else:
                 output = stop_continue_output()
+                if already_continued:
+                    entry["handoff_continuation_active"] = False
                 append_event(
                     event_log_path,
                     payload,
@@ -720,6 +750,9 @@ def main() -> int:
                     total_compactions=entry["total_compactions"],
                     threshold=threshold,
                     pending_handoff=pending,
+                    handoff_continuation_active=entry[
+                        "handoff_continuation_active"
+                    ],
                 )
 
         state[session_key] = entry

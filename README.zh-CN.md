@@ -93,7 +93,7 @@ flowchart LR
 
 如果精确的 Skill 或 identity verifier 不可用，自动交接会明确报告 `CODEX_HANDOFF_SKILL_UNAVAILABLE`，不会替换成 `handoff` 或其他相似 Skill。手工 `$codex-handoff` 仍保持 explicit-only。
 
-每次发出交接请求以后，当前交接周期的计数会归零。后续再累计到阈值时仍能触发。`stop_hook_active` 会阻止 continuation 再次安排自身。
+每次发出交接请求以后，当前交接周期的计数会归零。后续再累计到阈值时仍能触发。交接 continuation 活跃期间，Host 发出的 `PostCompact` 仍会写入审计记录，但不会计入下一轮；因此 continuation 自己的回复不会预先占用下一轮交接次数。`stop_hook_active` 会阻止 continuation 再次安排自身，并在最终 `Stop` 解除这层保护。
 
 ## 手动交接
 

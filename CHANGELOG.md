@@ -6,6 +6,7 @@ All notable changes are documented here.
 
 ### Fixed
 
+- Excluded host-emitted compactions inside an automatic handoff continuation from the next threshold cycle, preventing the continuation's own response from pre-filling a new handoff count.
 - Isolated automatic handoff evidence across `startup`, `clear`, and `resume` lifecycle generations so stale pending state cannot leak into a fresh Host lifecycle.
 - Added generation-bound `PostCompact` receipts, compact-boundary deduplication, and Stop-time evidence revalidation while preserving recurring handoffs and the exact Skill identity protocol.
 - Corrected clean-continuation results so OS deep-link dispatch is no longer reported as verified thread creation, prompt submission, turn start, or thread naming.

@@ -93,7 +93,7 @@ With the default threshold of 5:
 
 If the exact Skill or its verifier is unavailable, automatic handoff fails clearly with `CODEX_HANDOFF_SKILL_UNAVAILABLE`; it does not substitute `handoff` or any other similarly named Skill. Manual `$codex-handoff` invocation remains explicit-only.
 
-The per-handoff counter resets after the request, so another handoff can occur after the next configured number of compactions. `stop_hook_active` prevents the continuation from scheduling itself again.
+The per-handoff counter resets after the request, so another handoff can occur after the next configured number of compactions. While that handoff continuation is active, any host-emitted `PostCompact` is audited but excluded from the next cycle; the continuation's own response therefore cannot pre-fill the following handoff count. `stop_hook_active` prevents the continuation from scheduling itself again and closes this guard at its final `Stop`.
 
 ## Manual handoff
 

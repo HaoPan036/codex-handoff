@@ -21,7 +21,7 @@ The automatic flow uses four events with separate responsibilities.
 
 ### PostCompact
 
-A completed `PostCompact` creates a deterministic receipt from the session, generation, compact boundary, turn, and trigger. Redelivery of the same payload before `SessionStart(source=compact)` is audited as a duplicate and does not increment the count. Reaching the threshold sets `pending_handoff=true`. This event never emits a continuation or blocking decision, because compaction may complete while the active turn still has edits, tools, tests, or subagents to run.
+A completed `PostCompact` creates a deterministic receipt from the session, generation, compact boundary, turn, and trigger. Redelivery of the same payload before `SessionStart(source=compact)` is audited as a duplicate and does not increment the count. A `PostCompact` emitted while the Hook's own handoff continuation is active is also audited without creating a receipt or incrementing either counter, so continuation output cannot seed the next handoff cycle. Reaching the threshold sets `pending_handoff=true`. This event never emits a continuation or blocking decision, because compaction may complete while the active turn still has edits, tools, tests, or subagents to run.
 
 ### Stop
 
@@ -29,7 +29,7 @@ At a later `Stop`, the hook does not trust `pending_handoff` alone. It revalidat
 
 The continuation must run the bundled identity verifier with that expected hash before it reads the exact Skill file. It is explicitly forbidden from using Skill discovery, filesystem search, or a similarly named fallback. A missing, unreadable, renamed, or unverifiable workflow produces `CODEX_HANDOFF_SKILL_UNAVAILABLE`; the per-handoff compact count is preserved and no handoff request is recorded.
 
-Every other successful `Stop` path returns valid JSON with `continue: true`. This includes normal stops, repeated stops, missing session identifiers, and continuation stops.
+Every other successful `Stop` path returns valid JSON with `continue: true`. This includes normal stops, repeated stops, missing session identifiers, and continuation stops. A continuation stop also clears `handoff_continuation_active`, reopening receipt collection for later user work.
 
 ### SessionEnd
 
@@ -57,7 +57,11 @@ PENDING
   SessionStart(startup|clear|resume) -> NEW_GENERATION, stale pending discarded
 
 HANDOFF_REQUESTED
-  reset count to 0 -> IDLE
+  reset count to 0; set handoff_continuation_active -> CONTINUATION
+
+CONTINUATION
+  PostCompact -> audit only; counters unchanged
+  Stop with stop_hook_active=true -> IDLE, clear continuation guard
 
 PENDING
   Stop with unavailable exact Skill -> IDENTITY_FAILURE
@@ -89,6 +93,7 @@ State is keyed by Codex `session_id`:
     "compact_count_since_handoff": 0,
     "total_compactions": 3,
     "pending_handoff": false,
+    "handoff_continuation_active": false,
     "handoff_requests": 1,
     "cwd": "/workspace",
     "updated_at": 1786434000.0,

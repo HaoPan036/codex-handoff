@@ -210,6 +210,12 @@ class HookTests(unittest.TestCase):
             entry = self.state()["session-1"]
             self.assertEqual(entry["handoff_requests"], expected_request)
             self.assertEqual(entry["compact_count_since_handoff"], 0)
+            continuation = self.run_hook(
+                "Stop", threshold=3, stop_hook_active=True
+            )
+            self.assertEqual(
+                json.loads(continuation.stdout), {"continue": True}
+            )
 
         entry = self.state()["session-1"]
         self.assertEqual(entry["total_compactions"], 6)
@@ -304,6 +310,36 @@ class HookTests(unittest.TestCase):
         self.assertEqual(entry["compact_count_since_handoff"], 0)
         self.assertFalse(entry["pending_handoff"])
         self.assertEqual(self.events()[-1]["action"], "continuation_stop")
+
+    def test_compact_during_handoff_continuation_is_not_counted(self) -> None:
+        self.run_hook("PostCompact", threshold=1, turn_id="turn-handoff")
+        first = json.loads(
+            self.run_hook("Stop", threshold=1, turn_id="turn-handoff").stdout
+        )
+        self.assertEqual(first["decision"], "block")
+
+        self.run_hook("PostCompact", threshold=1, turn_id="turn-handoff")
+        self.run_hook(
+            "SessionStart", threshold=1, turn_id=None, source="compact"
+        )
+        continuation = self.run_hook(
+            "Stop",
+            threshold=1,
+            turn_id="turn-handoff",
+            stop_hook_active=True,
+        )
+
+        self.assertEqual(json.loads(continuation.stdout), {"continue": True})
+        entry = self.state()["session-1"]
+        self.assertEqual(entry["handoff_requests"], 1)
+        self.assertEqual(entry["compact_count_since_handoff"], 0)
+        self.assertEqual(entry["total_compactions"], 1)
+        self.assertFalse(entry["pending_handoff"])
+        self.assertFalse(entry["handoff_continuation_active"])
+        self.assertEqual(
+            self.events()[-3]["action"],
+            "handoff_continuation_compact_ignored",
+        )
 
     def test_plugin_data_config_sets_threshold(self) -> None:
         self.data_dir.mkdir(parents=True)
@@ -468,6 +504,14 @@ class HookTests(unittest.TestCase):
                 self.run_hook("Stop", turn_id=f"turn-{cycle}").stdout
             )
             self.assertEqual(output["decision"], "block")
+            continuation = self.run_hook(
+                "Stop",
+                turn_id=f"turn-{cycle}",
+                stop_hook_active=True,
+            )
+            self.assertEqual(
+                json.loads(continuation.stdout), {"continue": True}
+            )
 
         self.assertTrue(receipt_sets[0].isdisjoint(receipt_sets[1]))
         self.assertEqual(self.state()["session-1"]["handoff_requests"], 2)
