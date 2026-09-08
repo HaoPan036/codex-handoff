@@ -5,9 +5,13 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Platform: macOS | Linux](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-555.svg)](#compatibility-and-limitations)
 
-**Verified handoffs for long-running Codex sessions.**
+**Recover a clear, verifiable project state after repeated context compaction.**
 
-The hook reminds you at 5, 10, 15… completed compactions without interrupting work. You decide when to invoke `$codex-handoff`; the Skill then rebuilds continuation state from repository evidence in `docs/CODEX_HANDOFF.md`. The count is a reminder cadence, not a model-quality limit.
+Long Codex tasks can span many conversations and context compactions—condensing earlier context so work can continue. Details may no longer be fully available: an earlier constraint, the reason a solution was rejected, or which tests ran against which revision. The practical risks are repeated work, missed requirements, and stale assumptions. Compaction count alone does not prove quality loss; there is no universal count at which a model stops being reliable.
+
+Codex Handoff helps you check and carry forward what matters. It reminds you at 5, 10, 15… completed compactions without interrupting work. When you explicitly invoke `$codex-handoff`, the Skill checks Git, relevant files, project rules, and verification evidence, then creates `docs/CODEX_HANDOFF.md` with the current state, unresolved questions, and one concrete next task. A fresh session can inspect those sources again while your existing changes stay intact.
+
+The core does not hard-code a model name or context-window size. The [model-update strategy](#adapting-to-model-updates) keeps compatibility checks tied to the Codex host, and the [memory design](#working-alongside-memory) separates a current project handoff from longer-lived recall. Five compactions is a configurable reminder interval.
 
 [中文说明](README.zh-CN.md)
 
@@ -51,7 +55,29 @@ Compaction count alone does not establish quality loss. At a milestone or when p
 - Which tests actually ran and passed?
 - What is the one next task?
 
-A chat summary can repeat what the conversation said. Codex Handoff instead creates a durable repository artifact from evidence that a fresh session can inspect again. When evidence cannot establish an important fact, the handoff marks it `UNKNOWN`.
+Codex Handoff creates a durable repository artifact from evidence that a fresh session can inspect again. When evidence cannot establish an important fact, the handoff marks it `UNKNOWN`. It cannot recover conversation-only details that are no longer available, or guarantee model accuracy. The benefit is an explicit opportunity to verify project state and prepare a reviewable continuation.
+
+## Adapting to model updates
+
+As OpenAI updates the models available in ChatGPT and Codex, this project's integration remains with the **Codex host**. The current hook counts completed lifecycle events; it does not estimate model quality, inspect token capacity, or replace the host's compaction algorithm. The handoff is ordinary Markdown, and the reminder interval is configurable for your workflow.
+
+The maintenance strategy is to check the official host contracts after relevant updates, rerun reminder/resume/manual-handoff acceptance, and record the tested host and model. Changes to host events or task APIs may require code updates; a new model still needs workflow validation. Automatic adaptation to every future model is not an implemented feature. Current evidence is in the [acceptance record](docs/smoke-test-2026-09-08.md).
+
+## Working alongside memory
+
+Memory can carry useful context across chats. OpenAI distinguishes ChatGPT's web memory from Codex's local memories, and recommends keeping required project guidance in `AGENTS.md` or checked-in documents. See the official [memory documentation](https://learn.chatgpt.com/docs/customization/memories).
+
+The intended division of responsibility is:
+
+| Context | Role |
+| --- | --- |
+| Memory | Recall durable preferences, background, and reusable lessons. |
+| `AGENTS.md` and project documentation | State the project's applicable rules and maintained decisions. |
+| `docs/CODEX_HANDOFF.md` | Capture verified state for this repository and task at the handoff point, including evidence, unknowns, and the next action. |
+
+**Current boundary:** the plugin has no dedicated memory reader, writer, or synchronization adapter. During handoff preparation, its Skill is instructed to write only `docs/CODEX_HANDOFF.md`; the hook manages its own counters and audit data. The host may still supply memory as context under its own settings. A handoff remains a snapshot that needs rechecking when the repository changes.
+
+**Future integration principles:** keep task snapshots separate from durable memory; retain source, revision, and freshness information when transferring facts; recheck recalled project state against current files and test results; and surface unresolved conflicts without silently overwriting memory or promoting stale task details into lasting facts. Any memory integration should respect host controls and have explicit compatibility tests. These are design requirements for future work, not a claim that memory synchronization or automatic conflict resolution already exists.
 
 ## How it works
 
@@ -266,6 +292,8 @@ tests/
 
 ## Roadmap
 
+- Revalidate relevant model and Codex host updates, recording actual compatibility results.
+- Evaluate memory interoperability with provenance, freshness checks, and explicit conflict handling before adding a synchronization adapter.
 - Publish a community announcement and collect installation feedback.
 - Add Windows hook command packaging.
 - Collect external usage feedback before expanding the handoff schema.
