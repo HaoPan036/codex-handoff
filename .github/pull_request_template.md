@@ -10,8 +10,8 @@ Describe the bounded implementation.
 
 - [ ] `PostCompact` remains non-interrupting.
 - [ ] Every successful `Stop` path emits valid JSON.
-- [ ] `stop_hook_active` cannot create a continuation loop.
-- [ ] The recurring threshold still resets after a handoff request.
+- [ ] `Stop` never dispatches a handoff, including when `stop_hook_active` is set.
+- [ ] Reminders occur once at N, 2N, 3N; resume preserves the cadence and clear resets it.
 - [ ] The Hook performs no network or repository mutation.
 - [ ] The Skill preserves the working tree and its write boundary.
 

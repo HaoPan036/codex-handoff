@@ -140,7 +140,7 @@ def read_source_thread_name(
                     "clientInfo": {
                         "name": "codex_handoff",
                         "title": "Codex Handoff",
-                        "version": "0.1.1",
+                        "version": "0.2.0",
                     }
                 },
             }

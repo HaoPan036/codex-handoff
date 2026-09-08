@@ -1,6 +1,6 @@
 {
   "name": "codex-handoff",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Remind after repeated compactions; create evidence-backed handoffs when explicitly requested.",
   "author": {
     "name": "Hao Pan",

@@ -23,8 +23,8 @@ OPENAI_YAML_PATH = (
 )
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 FLOW_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-flow.svg"
-DEMO_VISUAL_PATH = ROOT / "docs" / "assets" / "codex-handoff-demo.gif"
 DEMO_PATH = ROOT / "docs" / "demo.md"
+REMINDER_SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-09-08.md"
 SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-11.md"
 IDENTITY_SMOKE_EVIDENCE_PATH = ROOT / "docs" / "smoke-test-2026-08-12.md"
 IDENTITY_HELPER_PATH = (
@@ -44,8 +44,8 @@ REQUIRED_FILES = [
     ROOT / "CHANGELOG.md",
     ROOT / "AGENTS.md",
     FLOW_VISUAL_PATH,
-    DEMO_VISUAL_PATH,
     DEMO_PATH,
+    REMINDER_SMOKE_EVIDENCE_PATH,
     SMOKE_EVIDENCE_PATH,
     IDENTITY_SMOKE_EVIDENCE_PATH,
     MARKETPLACE_PATH,
@@ -242,16 +242,12 @@ def main() -> int:
         if not flow_visual.tag.endswith("svg"):
             errors.append("README flow visual root element must be `svg`.")
 
-    try:
-        demo_header = DEMO_VISUAL_PATH.read_bytes()[:6]
-    except OSError as exc:
-        errors.append(f"README terminal demo could not be read: {exc}")
-    else:
-        if demo_header not in {b"GIF87a", b"GIF89a"}:
-            errors.append("README terminal demo must be a valid GIF file.")
-
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_zh = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    release_heading = rf"^## {re.escape(manifest_version)}, \d{{4}}-\d{{2}}-\d{{2}}$"
+    if not re.search(release_heading, changelog, re.M):
+        errors.append(f"CHANGELOG.md has no dated entry for {manifest_version}.")
     readme_requirements = (
         "$codex-handoff",
         "PostCompact",
@@ -259,10 +255,10 @@ def main() -> int:
         "PLUGIN_DATA",
         "bash install.sh 5",
         "HaoPan036/codex-handoff",
-        "docs/assets/codex-handoff-demo.gif",
+        "docs/assets/codex-handoff-flow.svg",
         "docs/demo.md",
-        "docs/smoke-test-2026-08-11.md",
-        "docs/smoke-test-2026-08-12.md",
+        "docs/smoke-test-2026-09-08.md",
+        f"https://github.com/HaoPan036/codex-handoff/releases/tag/v{manifest_version}",
     )
     for required in readme_requirements:
         if required not in readme:

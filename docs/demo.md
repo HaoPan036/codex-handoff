@@ -1,50 +1,73 @@
-# Demo and recording guide
+# v0.2.0 walkthrough
 
-## Historical demo status
+The homepage [workflow illustration](assets/codex-handoff-flow.svg) shows the current reminder-only behavior. It is a diagram, not a terminal recording. The [September 8 acceptance record](smoke-test-2026-09-08.md) identifies the host, source hashes, real events, observed results, and remaining limits.
 
-The following recording and host results cover the previous automatic-handoff lifecycle, not the current reminder-only revision. Do not present them as fresh UI acceptance.
+## 1. Keep working through reminders
 
-The repository contains a passing isolated Codex CLI installation test, a passing two-cycle model-backed host test, and a reviewed 18-second terminal demo from a separate host-driven run. The exact environment, observed state, fallback behavior, corrected deep-link evidence scope, and publication evidence are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
+Install v0.2.0 using one of the README installation paths, restart Codex, and review the exact hooks before trusting them. Use a disposable repository for a demo.
 
-The visual at the top of both READMEs is a frame-edited recording of actual Codex terminal output. It shows repository verification, three host-emitted `PostCompact` events, the next task finishing normally, a safe `Stop` continuation whose prompt names `$codex-handoff`, successful handoff validation, and the clean-session fallback prompt. The 2026-08-11 recording did not capture the exact loaded Skill identity; that evidence is documented separately in `smoke-test-2026-08-12.md`. Frames were cropped for privacy and pacing; execution output was not recreated or simulated.
+At the default interval of five, completed compactions produce this cadence:
 
-The published GIF is 18 seconds, 980×602 pixels, and 477,503 bytes. Its four unique frames were reviewed for usernames, absolute personal paths, credentials, private repository names, and unrelated notification content. The only visible workspace path is the neutral `/private/tmp/codex-handoff-demo` fixture.
+| Completed compactions | Expected behavior |
+| --- | --- |
+| 1–4 | Count locally; no reminder |
+| 5 | One reminder; current task continues |
+| 6–9 | No reminder |
+| 10 | One reminder; current task continues |
+| 11–14 | No reminder |
+| 15 | One reminder; current task continues |
 
-## Host-driven end-to-end test
+The reminder text at five is:
 
-Use a disposable repository containing no credentials, private remotes, personal paths in visible prompts, or proprietary code.
+```text
+本会话已累计压缩 5 次。需要交接时手动调用 $codex-handoff；当前任务照常继续。下次提醒：10 次。
+```
 
-1. Add the local marketplace from the Codex Handoff repository root.
+This is the source-defined message, not a screenshot or a claim about every host's visual presentation. The hook uses `systemMessage`; Codex surfaces it in its UI or event stream. `Stop` returns `{"continue": true}` and schedules no work. Ignoring the reminder never writes a handoff or opens a task.
 
-   ```bash
-   codex plugin marketplace add ./
-   ```
+Resuming the same session keeps the count and last reminder. Clearing the conversation or starting a new session starts a new cadence. Manually requesting a handoff does not reset the reminder count.
 
-2. Open `/hooks`. If an earlier profile-installed v4 Hook is active, remove it with the current checkout's `bash uninstall.sh` before enabling the Plugin Hook.
-3. Install Codex Handoff through `/plugins` or the ChatGPT desktop Plugins Directory.
-4. Start a new Codex session in the disposable repository.
-5. Open `/hooks`, review the exact `PostCompact` and `Stop` commands, and trust them.
-6. Set the threshold to a small value for the test and trigger that number of completed compactions. For every cycle, wait for both the `contextCompaction` item and its Turn to complete, record or announce that completion, and only then issue the next compact request.
-7. Confirm a non-blocking reminder appears at the configured count, with no automatic handoff at Stop. Ignore it, continue work, and confirm the next reminder appears only at the next multiple.
-8. Manually invoke `$codex-handoff`; confirm its identity verifier succeeds.
-9. Confirm `docs/CODEX_HANDOFF.md` is created and passes the bundled validator.
-10. On desktop, confirm native task creation applies the expected incremented title. On a portable Host, confirm the helper either dispatches a deep link or returns the complete manual startup prompt. If a composer opens, confirm the prompt is prepared and record that the user must press **Send**; do not treat OS dispatch as proof that a turn started.
-11. Resume the same session and verify counts persist; clear/new session starts a fresh cadence. Record actual reminder and manual-handoff results separately.
+## 2. Request the handoff yourself
 
-Record the Codex version, operating system, installation mode, threshold, and exact result in the release notes or a dedicated smoke-test record.
+When a milestone is complete, enter:
 
-## Recording the verified flow
+```text
+$codex-handoff handoff only
+```
 
-Keep the final terminal demo between 15 and 25 seconds. Show only these moments:
+The Skill verifies its identity, checks current Git state and relevant files, and writes `docs/CODEX_HANDOFF.md`. The document has eleven sections, one concrete next task, and at most five history entries. Staged, unstaged, and untracked work should remain intact.
 
-1. The count reaches a reminder milestone while the active task continues.
-2. The user explicitly invokes `$codex-handoff`.
-3. The exact `codex-handoff` Skill path and identity receipt are visible.
-4. `docs/CODEX_HANDOFF.md` is created and validated.
-5. A clean-session prompt is ready.
+Validate the result from the plugin checkout, replacing the final path with your disposable repository's document:
 
-Crop unrelated logs. Replace the disposable workspace path with a neutral path such as `~/demo/codex-handoff-example`. Check every frame for usernames, absolute private paths, tokens, API keys, private repository names, and notification content.
+```bash
+python3 plugins/codex-handoff/skills/codex-handoff/scripts/validate_handoff.py /path/to/demo/docs/CODEX_HANDOFF.md
+```
 
-Save the reviewed recording as `docs/assets/codex-handoff-demo.gif`, then replace the conceptual visual in both READMEs and update their status text together.
+Use Python 3.11 or newer. Document validation checks the contract and unresolved placeholders; it does not establish the semantic accuracy of every claim.
 
-The v0.1.0 recording followed this procedure on 2026-08-11. Because macOS displays a privacy shield during automated desktop control, the final GIF uses four original VS Code terminal captures from the same uninterrupted Codex run rather than a continuous screen capture. The frames are held for readability and cropped to the relevant terminal region; the sequence and output remain the observed host execution.
+## 3. Continue when ready
+
+For a handoff that also prepares a clean continuation, invoke `$codex-handoff` without `handoff only`.
+
+- A host with native task controls can create a titled task.
+- The portable helper requests a prefilled composer or prints the startup prompt if opening is unavailable.
+- A successful URL dispatch is not proof that a task was created or started. A prefilled composer still requires **Send**.
+
+The release acceptance record states which of these paths were actually exercised. Do not infer fresh desktop UI or native task-creation coverage from a passing hook test.
+
+## Reproduce the host test
+
+1. Use a disposable Git repository with a small deterministic test and representative staged, unstaged, and untracked fixture files.
+2. Confirm only one Codex Handoff hook source is active. Isolate its state directory from normal use.
+3. Use the real Codex host to complete fifteen compactions. In CLI, use `/compact`; in App Server, use the documented `thread/compact/start` operation.
+4. After each request, wait for the host's `contextCompaction` and turn completion events, then continue with a normal short turn before requesting another compaction.
+5. Check that the hook audit contains exactly three reminders, at 5/10/15; correlate them with host UI or event output. Verify no handoff document appeared and no automatic continuation started.
+6. Resume the same session and check that its count persists. Start a fresh session or use clear and verify the new cadence. Record these cases separately.
+7. Explicitly invoke the Skill with `handoff only`; record the identity check, document validation, and preservation of existing work.
+8. Test continuation only when intended, recording composer preparation, task creation, and actual turn startup as separate outcomes.
+
+Official contracts: [Hooks](https://learn.chatgpt.com/docs/hooks), [App Server](https://learn.chatgpt.com/docs/app-server).
+
+## Historical recording
+
+The [August 11 GIF](assets/codex-handoff-demo.gif) records the retired v0.1.x automatic-handoff behavior. It is retained for the [historical acceptance record](smoke-test-2026-08-11.md), and is no longer the homepage demo. [August 12 identity checks](smoke-test-2026-08-12.md) and [August 14 lifecycle checks](smoke-test-2026-08-14.md) are also historical, not v0.2.0 acceptance.

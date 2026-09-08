@@ -2,32 +2,30 @@
 
 All notable changes are documented here.
 
-## Unreleased
-
-### Reminder-only lifecycle — 2026-09-08
-
-- Replaced automatic Stop continuations with non-blocking PostCompact reminders at N, 2N, 3N completed compactions (default 5); ignoring a reminder never triggers a handoff or repeats it on every turn.
-- Preserve counts and reminder milestones when the same session resumes or restarts; clear/new sessions start a fresh cadence. Receipt deduplication and local bounded audit remain.
-- State schema 3 removes old automatic-dispatch flags. Verified schema-2 receipts may seed the cadence; unverifiable legacy totals remain diagnostic only. Old reached milestones do not replay during migration.
-- Unified shell/Python/Hook defaults at five and retained explicit-only manual Skill invocation. Existing clean-session creation/fallback behavior is unchanged.
-- Source and isolated tests only: this change does not install/enable hooks or claim a fresh desktop smoke test. Earlier Unreleased automatic-handoff notes below describe the superseded development history.
-
-### Fixed
-
-- Excluded host-emitted compactions inside an automatic handoff continuation from the next threshold cycle, preventing the continuation's own response from pre-filling a new handoff count.
-- Isolated automatic handoff evidence across `startup`, `clear`, and `resume` lifecycle generations so stale pending state cannot leak into a fresh Host lifecycle.
-- Added generation-bound `PostCompact` receipts, compact-boundary deduplication, and Stop-time evidence revalidation while preserving recurring handoffs and the exact Skill identity protocol.
-- Corrected clean-continuation results so OS deep-link dispatch is no longer reported as verified thread creation, prompt submission, turn start, or thread naming.
-
-### Added
-
-- Added a read-only `scripts/doctor.py` for Plugin, profile, project, and legacy Hook source diagnostics, plus an installer warning for Plugin + profile duplication.
+## 0.2.0, 2026-09-08
 
 ### Changed
 
-- Documented the official composer behavior: the deep link prepares the startup prompt, and the user presses **Send** to start the continuation.
-- Raised the default compact threshold from three completed compactions to five.
-- Codex desktop continuation now uses native titled task creation to carry an explicit source title forward with the next familiar sequence; portable hosts retain a transparent workspace-name fallback.
+- Replaced automatic Stop handoffs with non-blocking PostCompact reminders at N, 2N, 3N completed compactions; the default interval is five.
+- Handoffs now start only when the user explicitly invokes `$codex-handoff`. Ignoring a reminder never dispatches work, writes a handoff, or opens a task.
+- Preserve counts and reminder milestones when the same session resumes or restarts; clear/new sessions start a fresh cadence. A manual handoff does not reset that cadence.
+- State schema 3 removes automatic-dispatch flags. Verified schema-2 receipts may seed the cadence; unverifiable legacy totals remain diagnostic only, and already-reached milestones do not replay.
+- Aligned plugin, profile, and shell defaults at five. The profile installer preserves unrelated configuration and warns about duplicate Plugin + profile hooks.
+- Replaced the homepage's old automatic-handoff recording with an explicitly labeled reminder workflow illustration and current walkthrough. Historical test records remain separate.
+
+### Fixed
+
+- Corrected portable continuation results: OS deep-link dispatch does not verify task creation, prompt submission, turn start, or naming. A prefilled composer requires **Send**.
+- The desktop Skill uses native titled task creation when available; portable hosts retain a transparent workspace-name fallback.
+- Build source ZIPs from a resolved Git revision, including its committed file modes, instead of scanning the working directory. Local edits and untracked files cannot enter the archive.
+
+### Verification and upgrades
+
+- The [September 8 acceptance record](docs/smoke-test-2026-09-08.md) documents current host behavior and its verification limits.
+- Added release archive regression tests and validation of the current changelog and bilingual README version links.
+- Added a read-only installation diagnostic, `scripts/doctor.py`.
+- Upgrade one installation path at a time, restart the session, and review the updated hooks. Existing pending automatic handoffs will not run.
+- Python 3.11+ is required. If `python3` resolves to an older macOS system interpreter, use `python3.11 scripts/install_profile.py --threshold 5`.
 
 ## 0.1.1, 2026-08-12
 

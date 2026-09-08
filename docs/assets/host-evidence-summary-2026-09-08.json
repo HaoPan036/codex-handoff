@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "result": "PASS",
+  "recorded_at": "2026-09-08T19:12:15+08:00",
+  "environment": {
+    "codex_cli": "0.153.4",
+    "macos": "15.7.3 (24G419)",
+    "python": "3.11.14",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "low"
+  },
+  "source": {
+    "base_commit": "7ee30b0cff9afa9b6b9fc8f65a9173763703f0b5",
+    "hook_sha256": "02bc4db6cc6332a9096f29cdb133d5cc9b745ed64927b2494fa83f35121eb888",
+    "skill_sha256": "6fba5bb0508c82281ff9ff045c3759e45f25597aa473bebc1505ca8c8a430320"
+  },
+  "installation_mode": "Project hooks invoke the current repository source using an explicit Python 3.11 path and isolated hook state. This is not a marketplace installation test.",
+  "trust": "Reviewed hook hashes and fixture project trust passed only as process-scoped configuration overrides; no persistent trust write.",
+  "global_configuration_unchanged": true,
+  "credential_handling": "Existing Codex login; no credential copied, printed, or included in the fixture.",
+  "cadence": {
+    "thread_id": "01a080a8-0d16-7a41-8a63-cf7190089c52",
+    "request_method": "thread/compact/start",
+    "host_completion_event": "item/completed:contextCompaction followed by turn/completed",
+    "compactions": [
+      {
+        "count": 1,
+        "item_id": "01a080a8-3645-7502-abd0-4c9a0031b282",
+        "reminder_count": 0,
+        "last_reminded_count": 0
+      },
+      {
+        "count": 2,
+        "item_id": "01a080a8-897f-7761-adea-9b565df5fbe1",
+        "reminder_count": 0,
+        "last_reminded_count": 0
+      },
+      {
+        "count": 3,
+        "item_id": "01a080a8-ecdc-7f51-91f3-db101e98e2d4",
+        "reminder_count": 0,
+        "last_reminded_count": 0
+      },
+      {
+        "count": 4,
+        "item_id": "01a080a9-698c-7f01-b79d-223ca025056e",
+        "reminder_count": 0,
+        "last_reminded_count": 0
+      },
+      {
+        "count": 5,
+        "item_id": "01a080aa-0e46-7570-800f-9cc7b116938a",
+        "reminder_count": 1,
+        "last_reminded_count": 5
+      },
+      {
+        "count": 6,
+        "item_id": "01a080aa-b8f2-7073-bee6-1a8161e40b38",
+        "reminder_count": 1,
+        "last_reminded_count": 5
+      },
+      {
+        "count": 7,
+        "item_id": "01a080ab-50d2-7252-8d9a-581fcc5824fb",
+        "reminder_count": 1,
+        "last_reminded_count": 5
+      },
+      {
+        "count": 8,
+        "item_id": "01a080ab-e98b-7451-a5b7-0efe435f8deb",
+        "reminder_count": 1,
+        "last_reminded_count": 5
+      },
+      {
+        "count": 9,
+        "item_id": "01a080ac-807a-7cc2-92fb-381a0163a26d",
+        "reminder_count": 1,
+        "last_reminded_count": 5
+      },
+      {
+        "count": 10,
+        "item_id": "01a080ad-12ff-7433-b951-19301458a0b1",
+        "reminder_count": 2,
+        "last_reminded_count": 10
+      },
+      {
+        "count": 11,
+        "item_id": "01a080ad-a5c7-7600-9eee-137ee88de8de",
+        "reminder_count": 2,
+        "last_reminded_count": 10
+      },
+      {
+        "count": 12,
+        "item_id": "01a080ae-3a69-7542-bb39-32d6ed828bc8",
+        "reminder_count": 2,
+        "last_reminded_count": 10
+      },
+      {
+        "count": 13,
+        "item_id": "01a080ae-d3e5-7e33-bc89-b23db12aa262",
+        "reminder_count": 2,
+        "last_reminded_count": 10
+      },
+      {
+        "count": 14,
+        "item_id": "01a080af-6a9d-7293-b982-6ddd34285a15",
+        "reminder_count": 2,
+        "last_reminded_count": 10
+      },
+      {
+        "count": 15,
+        "item_id": "01a080b0-03cc-7b33-a73f-6eb137121e10",
+        "reminder_count": 3,
+        "last_reminded_count": 15
+      }
+    ],
+    "normal_followup_turns_completed": 15,
+    "tool_commands_before_explicit_invocation": 0,
+    "handoff_files_before_explicit_invocation": 0
+  },
+  "reminders": [
+    {
+      "count": 5,
+      "channel": "hook/completed.run.entries",
+      "kind": "warning",
+      "text": "本会话已累计压缩 5 次。需要交接时手动调用 $codex-handoff；当前任务照常继续。下次提醒：10 次。",
+      "emitted_at_ms": 1788865060921,
+      "turn_id": "01a080aa-0e26-7192-b663-8e5c824ac933"
+    },
+    {
+      "count": 10,
+      "channel": "hook/completed.run.entries",
+      "kind": "warning",
+      "text": "本会话已累计压缩 10 次。需要交接时手动调用 $codex-handoff；当前任务照常继续。下次提醒：15 次。",
+      "emitted_at_ms": 1788865254696,
+      "turn_id": "01a080ad-12f4-7d90-b2bc-9e04e7b6ea13"
+    },
+    {
+      "count": 15,
+      "channel": "hook/completed.run.entries",
+      "kind": "warning",
+      "text": "本会话已累计压缩 15 次。需要交接时手动调用 $codex-handoff；当前任务照常继续。下次提醒：20 次。",
+      "emitted_at_ms": 1788865447211,
+      "turn_id": "01a080b0-03c4-76c0-a538-5b3281e90375"
+    }
+  ],
+  "resume": {
+    "method": "thread/resume after shutting down and restarting the App Server process",
+    "thread_id": "01a080a8-0d16-7a41-8a63-cf7190089c52",
+    "compact_count": 15,
+    "reminder_count": 3,
+    "last_reminded_count": 15,
+    "normal_turn_completed": true,
+    "extra_reminder_observed": false
+  },
+  "new_clear_sourced_thread": {
+    "method": "thread/start",
+    "sessionStartSource": "clear",
+    "thread_id": "01a080b0-b599-7552-ba54-acd807ee0aa7",
+    "compact_count": 0,
+    "reminder_count": 0,
+    "observed_generation_source": "clear",
+    "scope": "A new real host thread with the clear source, not the original thread cleared through a native UI."
+  },
+  "manual_handoff": {
+    "invocation": "$codex-handoff handoff only",
+    "turn_id": "01a080b0-ceed-72f0-8522-823ad9852f3a",
+    "turn_status": "completed",
+    "identity_receipt": {
+      "name": "codex-handoff",
+      "sha256": "6fba5bb0508c82281ff9ff045c3759e45f25597aa473bebc1505ca8c8a430320",
+      "verified": true,
+      "skill_file": "plugins/codex-handoff/skills/codex-handoff/SKILL.md"
+    },
+    "validator_exit_code": 0,
+    "independent_validator_exit_code": 0,
+    "history_entries_retained": 1,
+    "only_changed_repository_path": "docs/CODEX_HANDOFF.md",
+    "document_sha256": "d2a509eb9dc50cc4af203e107ed85cafc3c76fdc891fe7d08b2e4fa86ac1e6a1",
+    "composer_opened": false,
+    "continuation_thread_created": false
+  },
+  "fixture_threads_archived": true,
+  "evidence_limits": [
+    "Reminders were observed in real App Server warning entries; no native desktop or terminal screenshot was captured.",
+    "Real manual compactions were used; automatic context-pressure compaction was not forced.",
+    "This run does not test marketplace discovery, installed-package trust UI, Windows, or clean-session opening.",
+    "The validator checks document structure; it does not independently prove every statement in the handoff."
+  ],
+  "workspace_preservation": {
+    "turn_id": "01a080b5-42b8-78d1-8c6a-e466425e4150",
+    "fixture_state": "Staged new file, unstaged README edit, and separate untracked file.",
+    "before": {
+      "working_tree_sha256": {
+        "README.md": "b56526d980c1aa6f3cdb92634c5fb0b943e4dd13f2a55738f6d426ba18fc60c2",
+        "math_utils.py": "b414e3e8a1cc84d091471727544c353f60db59fc2bea10ee562ece77410915be",
+        "AGENTS.md": "62a20be1bc367f1a7bf7110d7eb14e5c83bc72dcfb42df5aeddb82ff3b55d20b",
+        "staged-sentinel.txt": "cc9207e627294dd8f222fcaab980235c8c3f755da8ec28299e312806ddcca5ab",
+        "untracked-sentinel.txt": "6db6ad268d874bfa6699535d93e8e6b0ae763a9a3dca371ad26ff91cf443fb2e"
+      },
+      "index_listing_sha256": "bdf60a9045bea200ce095e0243ec34bfad8aaa520eb1cde41061390e6e6ae70b",
+      "staged_diff_sha256": "c13baaba8bcb6560568f10e14681d62ef090d913528a30376a7859790a1dbe96",
+      "unstaged_readme_diff_sha256": "296ef221f8e5839a1f1664ae0621eb9dc35eb5e978b80e7a6b5545d67f4ec61a",
+      "index_sentinel_sha256": "cc9207e627294dd8f222fcaab980235c8c3f755da8ec28299e312806ddcca5ab",
+      "status_without_handoff": [
+        " M README.md",
+        "A  staged-sentinel.txt",
+        "?? untracked-sentinel.txt"
+      ]
+    },
+    "after": {
+      "working_tree_sha256": {
+        "README.md": "b56526d980c1aa6f3cdb92634c5fb0b943e4dd13f2a55738f6d426ba18fc60c2",
+        "math_utils.py": "b414e3e8a1cc84d091471727544c353f60db59fc2bea10ee562ece77410915be",
+        "AGENTS.md": "62a20be1bc367f1a7bf7110d7eb14e5c83bc72dcfb42df5aeddb82ff3b55d20b",
+        "staged-sentinel.txt": "cc9207e627294dd8f222fcaab980235c8c3f755da8ec28299e312806ddcca5ab",
+        "untracked-sentinel.txt": "6db6ad268d874bfa6699535d93e8e6b0ae763a9a3dca371ad26ff91cf443fb2e"
+      },
+      "index_listing_sha256": "bdf60a9045bea200ce095e0243ec34bfad8aaa520eb1cde41061390e6e6ae70b",
+      "staged_diff_sha256": "c13baaba8bcb6560568f10e14681d62ef090d913528a30376a7859790a1dbe96",
+      "unstaged_readme_diff_sha256": "296ef221f8e5839a1f1664ae0621eb9dc35eb5e978b80e7a6b5545d67f4ec61a",
+      "index_sentinel_sha256": "cc9207e627294dd8f222fcaab980235c8c3f755da8ec28299e312806ddcca5ab",
+      "status_without_handoff": [
+        " M README.md",
+        "A  staged-sentinel.txt",
+        "?? untracked-sentinel.txt"
+      ]
+    },
+    "only_changed_path": "docs/CODEX_HANDOFF.md",
+    "handoff_sha256_before": "d2a509eb9dc50cc4af203e107ed85cafc3c76fdc891fe7d08b2e4fa86ac1e6a1",
+    "handoff_sha256_after": "a54215f8db111c23ee2a51349541b000aff0e77815192ef92f4e2ff1881889f3",
+    "validator_exit_code": 0,
+    "history_entries_retained": 2,
+    "fixture_thread_archived": true,
+    "host_file_snapshot": {
+      "file_count": 37,
+      "all_equal": true,
+      "git_index_sha256_before": "7c5d8110df04e4f7e0cf26c5c785eb861961891eabcf5ff79c4e7081dbfe59c7",
+      "git_index_sha256_after": "7c5d8110df04e4f7e0cf26c5c785eb861961891eabcf5ff79c4e7081dbfe59c7"
+    },
+    "completed_at": "2026-09-08T19:12:15+08:00"
+  },
+  "first_run_completed_at": "2026-09-08T19:07:14+0800"
+}

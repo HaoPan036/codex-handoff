@@ -11,9 +11,9 @@ The hook reminds you at 5, 10, 15… completed compactions without interrupting 
 
 [中文说明](README.zh-CN.md)
 
-![Real Codex terminal demo showing verified repository state, three completed compactions, a safe Stop handoff, and a validated CODEX_HANDOFF.md](docs/assets/codex-handoff-demo.gif)
+![Codex Handoff v0.2.0 workflow: reminders at 5, 10 and 15 compactions; explicit invocation; repository evidence; validated handoff](docs/assets/codex-handoff-flow.svg)
 
-<p align="center"><sub>Historical automatic-handoff demo, not the current reminder-only behavior. The new reminder UI still needs a fresh host smoke test.</sub></p>
+<p align="center"><sub>Workflow illustration, not a screen recording. <a href="docs/demo.md">Walkthrough</a> · <a href="docs/smoke-test-2026-09-08.md">September 8 acceptance evidence</a></sub></p>
 
 | Safe timing | Verified state | Clean continuation |
 | --- | --- | --- |
@@ -21,13 +21,15 @@ The hook reminds you at 5, 10, 15… completed compactions without interrupting 
 
 ## Quick start
 
-The profile installer installs the explicit-only Skill and reminder hook. The reminder-only revision has isolated test coverage, not a new host/UI acceptance result. Desktop native task creation and the portable prefilled-composer path remain unchanged.
+The profile installer installs the explicit-only Skill and reminder hook. Check that `python3 --version` is 3.11 or newer before installing.
 
 ```bash
-git clone https://github.com/HaoPan036/codex-handoff.git
+git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
+
+If macOS resolves `python3` to an older system Python, use your installed 3.11+ interpreter directly: `python3.11 scripts/install_profile.py --threshold 5`.
 
 Restart Codex, review and trust the installed hooks, then work normally. The final argument is the number of completed compactions between reminders.
 
@@ -121,7 +123,7 @@ See [SECURITY.md](SECURITY.md) for the security boundary and reporting process.
 The profile installer requires Python 3.11 or newer and installs the Skill and hooks directly into your user profile:
 
 ```bash
-git clone https://github.com/HaoPan036/codex-handoff.git
+git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
@@ -146,11 +148,7 @@ Restart Codex and review the exact hook definition after installation.
 
 ### Codex Plugin Marketplace
 
-The following August tests describe the previous automatic-handoff version, not validation of the current reminder-only revision.
-
-The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. The second `codex://new` call proved URL dispatch; it did not itself prove thread creation or automatic prompt submission. The portable deep-link contract requires the user to send; native task creation is a separate path.
-
-See the [2026-08-14 lifecycle-isolation and continuation evidence](docs/smoke-test-2026-08-14.md), the [2026-08-12 Skill-identity regression evidence](docs/smoke-test-2026-08-12.md), and the [2026-08-11 lifecycle evidence with corrected identity and deep-link scope](docs/smoke-test-2026-08-11.md).
+The repository includes a Plugin package and marketplace metadata. See the [current acceptance record](docs/smoke-test-2026-09-08.md) for the exact installation mode and host coverage of v0.2.0. The [August installation and automatic-handoff tests](docs/smoke-test-2026-08-11.md) remain historical evidence only.
 
 ```bash
 codex plugin marketplace add HaoPan036/codex-handoff
@@ -159,6 +157,8 @@ codex plugin marketplace add HaoPan036/codex-handoff
 If you are migrating from the profile-installed `codex-handoff-session` v4, do not leave both Hook sets enabled. From the current checkout, run `bash uninstall.sh` to remove the old profile Skill and hooks while retaining their local state, then install and trust the Plugin hooks.
 
 Then open `/plugins` in Codex CLI or the Plugins Directory in the ChatGPT desktop app, install `Codex Handoff`, start a new session, and review the bundled hooks through `/hooks` before trusting them. The repository marketplace is at `.agents/plugins/marketplace.json`; the package is at `plugins/codex-handoff/`.
+
+When upgrading, refresh the marketplace and confirm the installed version is **0.2.0**. Restart the session and review the updated hooks. The profile installer and marketplace are alternative installation methods; keep only one active. Existing verified counts can seed the new cadence, but old pending handoffs never dispatch automatically.
 
 The command shape and trust flow follow the official OpenAI documentation for [packaging Codex plugins](https://developers.openai.com/plugins/build/plugins) and [Codex hooks](https://developers.openai.com/codex/hooks).
 
@@ -211,12 +211,12 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 
 ## Compatibility and limitations
 
-- Current version: [`v0.1.1`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.1.1).
+- Current version: [`v0.2.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.2.0).
 - Automated tests run on macOS and Linux with Python 3.11, 3.12, and 3.13 in the repository CI workflow.
 - Python 3.11 or newer is required by the profile installer. Runtime helpers use only the Python standard library.
 - Packaged hook commands currently target macOS and Linux shells.
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
-- Historical automatic-handoff releases passed local and public GitHub Marketplace installation smoke tests; the reminder-only revision still needs fresh host acceptance. Interactive Hook trust, host-emitted events, recurring threshold cycles, deterministic Skill-path and hash verification, validated handoffs, and loop prevention have passed model-backed macOS host tests. See the [identity evidence](docs/smoke-test-2026-08-12.md), the [earlier lifecycle evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
+- Current reminder and manual-handoff coverage is documented in the [September 8 acceptance record](docs/smoke-test-2026-09-08.md). It distinguishes real host events, UI evidence, isolated tests, and continuation behavior. See [the walkthrough](docs/demo.md) and [release checklist](docs/release-checklist.md).
 - The [`codex://new` continuation opener](https://developers.openai.com/codex/app/commands/#deeplinks) is best effort. A successful OS dispatch requests a new composer with the prompt prefilled; it does not verify thread creation and never submits the prompt automatically. Press **Send**. If dispatch fails, the helper prints the complete startup prompt for manual use.
 - The desktop path uses native task listing and titled task creation, so the numbered title is applied at creation. The portable path may use stable App Server `thread/read`, but a restricted nested Host sandbox can prevent that lookup; it then falls back to the workspace name. Requested and verified title fields remain separate.
 - A validated handoff remains useful when automatic session opening is unavailable.
@@ -230,7 +230,9 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-The tests cover 5/10/15 reminders, silent intermediate/repeated events, resume/clear behavior, old-state migration, source-independent reminders, valid non-dispatching Stop output, identity helpers, doctor diagnostics, snapshot collection, handoff validation, deep-link semantics, installers, and package metadata.
+The tests cover 5/10/15 reminders, silent intermediate/repeated events, resume/clear behavior, old-state migration, source-independent reminders, valid non-dispatching Stop output, identity helpers, doctor diagnostics, snapshot collection, handoff validation, deep-link semantics, installers, and package metadata. Use a Python 3.11+ interpreter for both commands.
+
+To build a release archive from a committed revision, run `python3 scripts/create_release.py --ref v0.2.0`. The archive reads committed Git content and file modes, excluding local edits and untracked files; it writes `dist/codex-handoff-v0.2.0.zip` and `dist/SHA256SUMS.txt`.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/design.md](docs/design.md) before changing the lifecycle contract. See [docs/troubleshooting.md](docs/troubleshooting.md) for common installation and runtime problems.
 
@@ -252,11 +254,9 @@ plugins/codex-handoff/
       verify_identity.py
 docs/
   assets/
-    codex-handoff-demo.gif
     codex-handoff-flow.svg
   demo.md
-  smoke-test-2026-08-11.md
-  smoke-test-2026-08-12.md
+  smoke-test-2026-09-08.md
 scripts/
   install_profile.py
   uninstall_profile.py
