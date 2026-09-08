@@ -7,29 +7,29 @@
 
 **让长时间运行的 Codex Session 在 context compaction 后继续相信可验证的仓库事实。**
 
-多次 context compaction 之后，Codex 会越来越难判断仓库当前究竟是什么状态。Codex Handoff 会等当前 Turn 到达安全边界，再从仓库证据重建继续工作所需的信息，把结果写入 `docs/CODEX_HANDOFF.md`，供干净的新 Session 核对和接手。
+Hook 在第 5、10、15… 次已完成压缩时提醒，不打断任务。由你决定何时手动调用 `$codex-handoff`，再核验仓库并生成 `docs/CODEX_HANDOFF.md`。次数只是提醒节奏，不是模型质量的失效阈值。
 
 [English README](README.md)
 
 ![真实 Codex terminal demo，展示仓库状态校验、三次 context compaction、安全 Stop 交接和经过验证的 CODEX_HANDOFF.md](docs/assets/codex-handoff-demo.gif)
 
-<p align="center"><sub>真实 Codex host 运行，出于隐私和节奏需要做了裁剪。三次 compaction 后在安全 Stop 发起交接，校验 handoff 并准备新 Session 启动提示词。</sub></p>
+<p align="center"><sub>这是旧版自动交接的历史演示，不代表当前“只提醒”行为；新版仍需实际 Host 界面验收。</sub></p>
 
 | 安全时机 | 可验证状态 | 干净延续 |
 | --- | --- | --- |
-| 等当前 Turn 自然到达 `Stop`，不会中途打断任务。 | 根据 Git、仓库文件、测试、产物和 `AGENTS.md` 重建状态。 | 生成结构固定且经过校验的 `docs/CODEX_HANDOFF.md`，交给新 Session。 |
+| 非阻塞提醒；只有显式调用才交接。 | 根据 Git、仓库文件、测试、产物和 `AGENTS.md` 重建状态。 | 生成结构固定且经过校验的 `docs/CODEX_HANDOFF.md`，交给新 Session。 |
 
 ## 快速开始
 
-用户级安装脚本仍是最短的安装路径。Plugin 包已经通过隔离的 CLI 安装检查和真实 Codex host 测试，覆盖 Hook trust、重复阈值周期、精确 Skill identity、经过校验的 handoff 更新和防循环。桌面端可以在创建干净任务时直接带上递增标题；便携 Host 仍保留显式的预填 composer 路径，由用户按 **Send**。
+用户级安装脚本提供仅显式调用的 Skill 和提醒 Hook。新版提醒逻辑通过隔离测试，不代表已完成新的 Host/UI 验收；桌面原生创建和便携预填输入框的启动路径未改。
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
-bash install.sh 3
+bash install.sh 5
 ```
 
-安装后重启 Codex，检查并信任新安装的 Hook。最后一个数字表示累计完成多少次 compaction 后安排交接。
+安装后重启 Codex，检查并信任新安装的 Hook。最后一个数字表示每累计多少次 compaction 提醒一次。
 
 任何里程碑都可以手动交接，无需等待阈值。
 
@@ -41,7 +41,7 @@ $codex-handoff
 
 ## 为什么需要 Codex Handoff
 
-一次 context compaction 通常不会阻止任务继续。次数增加以后，继续工作的 Session 很难有把握地回答这些问题。
+压缩次数本身不能证明回答质量下降；到达里程碑或任务状态不清时，交接可以帮助核验这些问题。
 
 - 哪些工作已经完成？
 - 当前有哪些 staged、unstaged 和 untracked 变更？
@@ -53,47 +53,14 @@ $codex-handoff
 
 ## 工作原理
 
-自动流程把计数和行动分开。`SessionStart` 会隔离 `startup`、`clear` 和 `resume` generation。`PostCompact` 只在当前 generation 记录 receipt，不改变模型行为；随后到来的 `SessionStart(source=compact)` 建立下一次 receipt 的边界，因此同一个长 Turn 中的多次真实 compaction 仍可分别计数，而边界前的重复投递只算一次。达到阈值以后，Hook 只把状态记为待交接。当前任务、tool call、测试和 subagent 都会继续，直到 Turn 自然到达 `Stop`。
+`PostCompact` 对已完成压缩去重，在 N、2N、3N 次显示非阻塞 `systemMessage`（默认 N=5）。`Stop` 始终只返回 `continue: true`，不发起额外工作。`SessionStart(source=compact)` 区分同一轮中的真实多次压缩；同一会话 resume/startup 保留计数，clear 或新会话重新计数。超过 30 天未活动的状态会过期。
 
-到了这个边界，`Stop` 会重新验证当前 generation 确实拥有足够的 receipts，再根据 Host 提供的 Plugin root（或 profile installer 写入的精确路径）定位自己的 Skill，校验 Skill 名称并记录 SHA-256。Continuation 会再次验证这份 identity，再读取精确的 `SKILL.md`；它不会搜索名称相似的 handoff Skill。随后 workflow 检查仓库、写入并校验交接文件，并在可用时使用原生的带标题任务创建。便携 deep-link 回退只负责预填，需要用户按 **Send**。
-
-### 技术流程
-
-```mermaid
-flowchart LR
-    A[SessionStart startup、clear 或 resume] --> B[建立隔离 generation]
-    B --> C[记录唯一 PostCompact receipt]
-    C --> D{达到阈值?}
-    D -- 否 --> E[继续当前任务]
-    D -- 是 --> F[记录待交接状态]
-    F --> E
-    E --> G[当前 Turn 自然到达 Stop]
-    G --> H[重验 receipts 并绑定精确 Skill]
-    H --> I[验证 identity 并收集证据]
-    I --> J[创建并校验 docs/CODEX_HANDOFF.md]
-    J --> K[计算下一个习惯任务名]
-    K --> L{原生任务控制可用?}
-    L -- 是 --> M[创建带标题的干净任务]
-    L -- 否 --> N[打开预填 composer]
-    N --> O[用户按 Send]
+```text
+完成压缩 → 去重计数 → 达到倍数？→ 非阻塞提醒
+你手动调用 $codex-handoff → 核验事实 → 保存交接 → 干净续接
 ```
 
-[docs/design.md](docs/design.md) 详细记录了状态机、信任边界和证据优先级。
-
-## 自动交接
-
-默认阈值为 5，流程如下。
-
-1. 当前 lifecycle generation 记录到 5 个已经完成的唯一 `PostCompact` receipts。
-2. 当前任务继续执行，不会被中途打断。
-3. Turn 自然到达下一次 `Stop` 时，Hook 把 continuation 绑定到精确的 `codex-handoff/SKILL.md` 路径和 SHA-256。
-4. Continuation 验证 identity，只读取这份 workflow，再创建或更新 `docs/CODEX_HANDOFF.md`、完成校验并准备干净的续接环境。
-5. 在 Codex 桌面端，原生任务控制会读取当前明确标题，计算下一个习惯序号（`名称` → `名称2`，`名称2` → `名称3`），并在创建干净任务时直接应用；没有标题时使用 workspace 名称。
-6. 不支持原生任务创建的 Host 会回退到预填 composer；用户按 **Send** 后，第一条指令会在 task-title control 可用时请求这个名称。
-
-如果精确的 Skill 或 identity verifier 不可用，自动交接会明确报告 `CODEX_HANDOFF_SKILL_UNAVAILABLE`，不会替换成 `handoff` 或其他相似 Skill。手工 `$codex-handoff` 仍保持 explicit-only。
-
-每次发出交接请求以后，当前交接周期的计数会归零。后续再累计到阈值时仍能触发。交接 continuation 活跃期间，Host 发出的 `PostCompact` 仍会写入审计记录，但不会计入下一轮；因此 continuation 自己的回复不会预先占用下一轮交接次数。`stop_hook_active` 会阻止 continuation 再次安排自身，并在最终 `Stop` 解除这层保护。
+忽略提醒后，直到下一个倍数才再提醒。Hook 不写交接、不打开会话，也不向模型追加续跑指令。[docs/design.md](docs/design.md) 记录状态与迁移边界。
 
 ## 手动交接
 
@@ -109,7 +76,7 @@ $codex-handoff
 $codex-handoff handoff only
 ```
 
-手动调用与自动流程遵守同一套证据和安全规则。
+仅显式手动调用才启动交接，提醒本身不是授权。
 
 默认命令会在原生任务控制可用时创建带标题的干净任务；否则准备 composer 并要求用户按 **Send**。`handoff only` 在生成和校验完成后结束。
 
@@ -143,7 +110,7 @@ $codex-handoff handoff only
 - 无法验证的重要结论标记为 `UNKNOWN`
 - 不写入凭证、密钥、大段完整日志和完整 diff
 
-Hook 不会读取仓库文件或 transcript。它只接收生命周期事件元数据，更新本地计数和有大小限制的审计日志，并在配置好的边界输出 continuation decision。Hook 不访问网络，也不修改仓库。Codex Handoff 不收集 telemetry。
+Hook 不会读取仓库文件或 transcript。它只接收生命周期事件元数据，更新本地计数和有大小限制的审计日志，并在配置的计数倍数显示非阻塞提醒。Hook 不访问网络，也不修改仓库。Codex Handoff 不收集 telemetry。
 
 [SECURITY.md](SECURITY.md) 记录了安全边界和漏洞报告方式。
 
@@ -156,7 +123,7 @@ Hook 不会读取仓库文件或 transcript。它只接收生命周期事件元�
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
-bash install.sh 3
+bash install.sh 5
 ```
 
 脚本会完成这些操作。
@@ -166,7 +133,7 @@ bash install.sh 3
 - 备份并更新 `~/.codex/config.toml`
 - 删除旧版 `codex-handoff-session` 写入的 Hook 配置
 - 保留旧版 lifetime total 供诊断，同时隔离无法验证的 active count 和 pending flag
-- 把四条 lifecycle Hook 命令固定到已安装的 `~/.agents/skills/codex-handoff/SKILL.md`
+- 为兼容保留 profile 命令中的已安装 Skill 路径；提醒 Hook 不读取或调用它
 - 检测到 Plugin 与 profile Hook 同时启用时给出强 warning
 
 随时可以运行只读安装诊断：
@@ -179,7 +146,9 @@ python3 scripts/doctor.py
 
 ### Codex Plugin Marketplace
 
-仓库已经包含 Plugin 包和 Marketplace metadata。2026 年 8 月 11 日，Codex CLI `0.147.0-alpha.6.5` 分别从本地 checkout 和公开的 `HaoPan036/codex-handoff` shorthand 成功发现并安装了 `0.1.0`，两次测试均使用隔离的 `CODEX_HOME`。公开缓存中的 manifest、Hook、Skill 和 helper hash 与当前仓库一致。随后，一个由模型驱动的 Codex CLI Session 在一次性仓库中信任 bundled Hook 并完成了两个由 host 发出的阈值周期：6 次真实 `PostCompact` 产生 2 次安全 handoff continuation，每次请求后计数都归零，两次 handoff 文件都通过校验，而且 continuation 均正常结束、没有形成循环。第二次 `codex://new` 只证明 URL dispatch；它本身没有证明 thread 创建或 prompt 自动提交。当前官方 contract 已明确 prompt 必须由用户发送。
+以下八月测试记录属于旧版自动交接，不是当前 reminder-only 版本的新验收结果。
+
+仓库已经包含 Plugin 包和 Marketplace metadata。2026 年 8 月 11 日，Codex CLI `0.147.0-alpha.6.5` 分别从本地 checkout 和公开的 `HaoPan036/codex-handoff` shorthand 成功发现并安装了 `0.1.0`，两次测试均使用隔离的 `CODEX_HOME`。公开缓存中的 manifest、Hook、Skill 和 helper hash 与当前仓库一致。随后，一个由模型驱动的 Codex CLI Session 在一次性仓库中信任 bundled Hook 并完成了两个由 host 发出的阈值周期：6 次真实 `PostCompact` 产生 2 次安全 handoff continuation，每次请求后计数都归零，两次 handoff 文件都通过校验，而且 continuation 均正常结束、没有形成循环。第二次 `codex://new` 只证明 URL dispatch；它本身没有证明 thread 创建或 prompt 自动提交。便携 deep-link contract 要求用户发送；原生任务创建是另一条路径。
 
 [2026-08-14 lifecycle isolation 与 continuation 记录](docs/smoke-test-2026-08-14.md)、[2026-08-12 Skill identity 回归记录](docs/smoke-test-2026-08-12.md)，以及 [2026-08-11 lifecycle 记录及其修正后的 identity 与 deep-link 证据范围](docs/smoke-test-2026-08-11.md) 给出了完整证据。
 
@@ -247,7 +216,7 @@ bash install.sh 5
 - 用户级安装脚本要求 Python 3.11 或更高版本。运行时辅助脚本只使用 Python 标准库。
 - 当前打包的 Hook 命令面向 macOS 和 Linux shell。
 - Codex Plugin 可用于 Codex CLI 和 ChatGPT 桌面端，IDE Extension 暂不支持。IDE Extension 可以使用用户级安装脚本。
-- 本地和公开 GitHub Marketplace 的发现与安装已通过隔离冒烟测试。交互式 Hook trust、host 发出的事件、重复阈值周期、确定性的 Skill 路径与 hash 校验、handoff 校验和防循环也已通过由模型驱动的 macOS host 测试。相关材料见 [identity 测试记录](docs/smoke-test-2026-08-12.md)、[较早的 lifecycle 记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
+- 旧版自动交接的本地和公开 GitHub Marketplace 安装通过过隔离冒烟测试；新版只提醒行为仍需实际 Host 验收。交互式 Hook trust、host 发出的事件、重复阈值周期、确定性的 Skill 路径与 hash 校验、handoff 校验和防循环也已通过由模型驱动的 macOS host 测试。相关材料见 [identity 测试记录](docs/smoke-test-2026-08-12.md)、[较早的 lifecycle 记录](docs/smoke-test-2026-08-11.md)、[Demo 指南](docs/demo.md) 和 [release checklist](docs/release-checklist.md)。
 - [`codex://new` 续接能力](https://developers.openai.com/codex/app/commands/#deeplinks)采用尽力而为策略。OS dispatch 成功表示请求打开预填 prompt 的新 composer，不代表已验证 thread 创建，也绝不会自动提交 prompt。请按 **Send**。dispatch 失败时，helper 会输出完整的手动启动提示词。
 - 桌面端使用原生任务列表和带标题的任务创建，因此序号标题会在创建时直接应用。便携回退路径可以使用稳定的 App Server `thread/read`，但受限的嵌套 Host sandbox 可能阻止这次读取，此时会回退为 workspace 名称。请求名称与已验证名称仍分开报告。
 - 自动打开失败不会影响已经校验完成的 handoff 文件。
@@ -261,7 +230,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-测试覆盖 fresh/resume generation、stale state 拒绝、重复 compaction 投递、重复交接 receipts、精确 Skill identity 与失败路径、合法的 `Stop` JSON、防循环、doctor 诊断、snapshot、handoff validator、deep-link 结果语义、旧版安装升级和 Plugin metadata。
+测试覆盖 5/10/15 次提醒、中间及重复事件静默、resume/clear、旧状态迁移、缺失 Skill 不阻塞提醒、Stop 不调度、identity helper、doctor、snapshot、handoff validator、deep-link 结果、安装升级和 Plugin metadata。
 
 修改生命周期协议前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [docs/design.md](docs/design.md)。常见安装与运行问题见 [docs/troubleshooting.md](docs/troubleshooting.md)。
 

@@ -257,7 +257,7 @@ def main() -> int:
         "PostCompact",
         "Stop",
         "PLUGIN_DATA",
-        "bash install.sh 3",
+        "bash install.sh 5",
         "HaoPan036/codex-handoff",
         "docs/assets/codex-handoff-demo.gif",
         "docs/demo.md",

@@ -4,6 +4,14 @@ All notable changes are documented here.
 
 ## Unreleased
 
+### Reminder-only lifecycle — 2026-09-08
+
+- Replaced automatic Stop continuations with non-blocking PostCompact reminders at N, 2N, 3N completed compactions (default 5); ignoring a reminder never triggers a handoff or repeats it on every turn.
+- Preserve counts and reminder milestones when the same session resumes or restarts; clear/new sessions start a fresh cadence. Receipt deduplication and local bounded audit remain.
+- State schema 3 removes old automatic-dispatch flags. Verified schema-2 receipts may seed the cadence; unverifiable legacy totals remain diagnostic only. Old reached milestones do not replay during migration.
+- Unified shell/Python/Hook defaults at five and retained explicit-only manual Skill invocation. Existing clean-session creation/fallback behavior is unchanged.
+- Source and isolated tests only: this change does not install/enable hooks or claim a fresh desktop smoke test. Earlier Unreleased automatic-handoff notes below describe the superseded development history.
+
 ### Fixed
 
 - Excluded host-emitted compactions inside an automatic handoff continuation from the next threshold cycle, preventing the continuation's own response from pre-filling a new handoff count.

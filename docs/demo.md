@@ -1,6 +1,8 @@
 # Demo and recording guide
 
-## Current demo status
+## Historical demo status
+
+The following recording and host results cover the previous automatic-handoff lifecycle, not the current reminder-only revision. Do not present them as fresh UI acceptance.
 
 The repository contains a passing isolated Codex CLI installation test, a passing two-cycle model-backed host test, and a reviewed 18-second terminal demo from a separate host-driven run. The exact environment, observed state, fallback behavior, corrected deep-link evidence scope, and publication evidence are recorded in [smoke-test-2026-08-11.md](smoke-test-2026-08-11.md).
 
@@ -23,11 +25,11 @@ Use a disposable repository containing no credentials, private remotes, personal
 4. Start a new Codex session in the disposable repository.
 5. Open `/hooks`, review the exact `PostCompact` and `Stop` commands, and trust them.
 6. Set the threshold to a small value for the test and trigger that number of completed compactions. For every cycle, wait for both the `contextCompaction` item and its Turn to complete, record or announce that completion, and only then issue the next compact request.
-7. Confirm the active task reaches a normal `Stop` before the handoff continuation starts.
-8. Confirm the continuation is bound to the exact `codex-handoff` Skill path and that its identity verifier succeeds.
+7. Confirm a non-blocking reminder appears at the configured count, with no automatic handoff at Stop. Ignore it, continue work, and confirm the next reminder appears only at the next multiple.
+8. Manually invoke `$codex-handoff`; confirm its identity verifier succeeds.
 9. Confirm `docs/CODEX_HANDOFF.md` is created and passes the bundled validator.
 10. On desktop, confirm native task creation applies the expected incremented title. On a portable Host, confirm the helper either dispatches a deep link or returns the complete manual startup prompt. If a composer opens, confirm the prompt is prepared and record that the user must press **Send**; do not treat OS dispatch as proof that a turn started.
-11. Repeat the threshold cycle and confirm a second handoff can be requested without a continuation loop.
+11. Resume the same session and verify counts persist; clear/new session starts a fresh cadence. Record actual reminder and manual-handoff results separately.
 
 Record the Codex version, operating system, installation mode, threshold, and exact result in the release notes or a dedicated smoke-test record.
 
@@ -35,8 +37,8 @@ Record the Codex version, operating system, installation mode, threshold, and ex
 
 Keep the final terminal demo between 15 and 25 seconds. Show only these moments:
 
-1. The threshold becomes pending while the active task continues.
-2. The Turn reaches a normal `Stop`.
+1. The count reaches a reminder milestone while the active task continues.
+2. The user explicitly invokes `$codex-handoff`.
 3. The exact `codex-handoff` Skill path and identity receipt are visible.
 4. `docs/CODEX_HANDOFF.md` is created and validated.
 5. A clean-session prompt is ready.

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,8 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "plugins" / "codex-handoff" / "hooks" / "codex_handoff_hook.py"
 PLUGIN_ROOT = ROOT / "plugins" / "codex-handoff"
 SKILL = PLUGIN_ROOT / "skills" / "codex-handoff" / "SKILL.md"
-VERIFY_IDENTITY = SKILL.parent / "scripts" / "verify_identity.py"
-WRONG_MARKER = "WRONG_HANDOFF_SKILL_USED"
 
 
 class HookTests(unittest.TestCase):
@@ -96,7 +92,8 @@ class HookTests(unittest.TestCase):
             trigger=trigger,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "")
+        if result.stdout:
+            self.assertEqual(set(json.loads(result.stdout)), {"continue", "systemMessage"})
         result = self.run_hook(
             "SessionStart",
             turn_id=None,
@@ -116,444 +113,182 @@ class HookTests(unittest.TestCase):
             .splitlines()
         ]
 
-    def dispatch_identity(self, reason: str) -> dict[str, str]:
-        match = re.search(r"CODEX_HANDOFF_DISPATCH=(\{.*\})", reason)
-        self.assertIsNotNone(match, reason)
-        value = json.loads(match.group(1))
-        self.assertIsInstance(value, dict)
-        return value
-
-    def make_skill(self, root: Path, name: str, body: str = "") -> Path:
-        skill = root / "skills" / name / "SKILL.md"
-        skill.parent.mkdir(parents=True)
-        skill.write_text(
-            f"---\nname: {name}\ndescription: fixture skill\n---\n\n{body}\n",
-            encoding="utf-8",
-        )
-        scripts = skill.parent / "scripts"
-        scripts.mkdir()
-        shutil.copy2(VERIFY_IDENTITY, scripts / "verify_identity.py")
-        return skill
-
-    def test_postcompact_counts_completed_events_without_stdout(self) -> None:
-        result = self.run_hook("PostCompact", trigger="auto")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "")
+    def test_reminders_at_five_ten_fifteen_only(self) -> None:
+        reminders = []
+        for count in range(1, 17):
+            result = self.run_hook("PostCompact", threshold=None, trigger="auto")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            if result.stdout:
+                output = json.loads(result.stdout)
+                self.assertEqual(set(output), {"continue", "systemMessage"})
+                self.assertTrue(output["continue"])
+                self.assertIn(f" {count} ", output["systemMessage"])
+                reminders.append(count)
+            self.run_hook("SessionStart", source="compact", threshold=None)
+            for _ in range(2):
+                output = json.loads(self.run_hook("Stop", threshold=None).stdout)
+                self.assertEqual(output, {"continue": True})
+        self.assertEqual(reminders, [5, 10, 15])
         entry = self.state()["session-1"]
-        self.assertEqual(entry["compact_count_since_handoff"], 1)
-        self.assertEqual(entry["total_compactions"], 1)
-        self.assertFalse(entry["pending_handoff"])
+        self.assertEqual(entry["compact_count"], 16)
+        self.assertEqual(entry["last_reminded_count"], 15)
+        self.assertEqual(entry["reminder_count"], 3)
+        self.assertNotIn("pending_handoff", entry)
 
-    def test_normal_stop_always_emits_valid_json(self) -> None:
-        result = self.run_hook("Stop")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout), {"continue": True})
-
-    def test_missing_session_id_stop_emits_valid_json(self) -> None:
-        result = self.run_hook("Stop", session_id=None)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout), {"continue": True})
-
-    def test_threshold_waits_for_stop_and_resets_counter(self) -> None:
-        for _ in range(3):
-            self.record_compact()
-
-        pending = self.state()["session-1"]
-        self.assertTrue(pending["pending_handoff"])
-        self.assertEqual(pending["compact_count_since_handoff"], 3)
-
-        result = self.run_hook("Stop")
-        output = json.loads(result.stdout)
-        self.assertEqual(output["decision"], "block")
-        identity = self.dispatch_identity(output["reason"])
-        self.assertEqual(identity["name"], "codex-handoff")
-        self.assertEqual(identity["skill_file"], str(SKILL.resolve()))
-        self.assertRegex(identity["sha256"], r"^[0-9a-f]{64}$")
-        self.assertIn("safe Stop boundary", output["reason"])
-        self.assertIn("Do not use Skill discovery", output["reason"])
-        context_line = next(
-            line
-            for line in output["reason"].splitlines()
-            if line.startswith("CODEX_HANDOFF_CONTEXT=")
-        )
-        context = json.loads(context_line.split("=", 1)[1])
-        self.assertEqual(context["source_thread_id"], "session-1")
-
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["compact_count_since_handoff"], 0)
-        self.assertEqual(entry["total_compactions"], 3)
-        self.assertEqual(entry["handoff_requests"], 1)
-        self.assertFalse(entry["pending_handoff"])
-
-    def test_builtin_default_threshold_is_five_completed_compactions(self) -> None:
+    def test_duplicate_compact_at_threshold_is_silent(self) -> None:
         for _ in range(4):
-            self.record_compact(threshold=None)
+            self.record_compact(threshold=5)
+        first = self.run_hook("PostCompact", trigger="auto", threshold=5)
+        self.assertIn("systemMessage", json.loads(first.stdout))
+        duplicate = self.run_hook("PostCompact", trigger="auto", threshold=5)
+        self.assertEqual(duplicate.stdout, "")
+        self.assertEqual(self.state()["session-1"]["compact_count"], 5)
 
-        before_threshold = json.loads(
-            self.run_hook("Stop", threshold=None).stdout
-        )
-        self.assertEqual(before_threshold, {"continue": True})
+    def test_same_turn_after_boundary_counts_separately(self) -> None:
+        for _ in range(4):
+            self.record_compact(threshold=5)
+        self.assertEqual(self.state()["session-1"]["compact_count"], 4)
 
-        self.record_compact(threshold=None)
-        at_threshold = json.loads(self.run_hook("Stop", threshold=None).stdout)
-        self.assertEqual(at_threshold["decision"], "block")
-        self.assertIn("configured threshold of 5", at_threshold["reason"])
+    def test_resume_and_startup_preserve_count_and_reminder(self) -> None:
+        for _ in range(5):
+            self.record_compact(threshold=5)
+        before = self.state()["session-1"]
+        for source in ("resume", "startup"):
+            self.run_hook("SessionEnd")
+            self.assertEqual(self.run_hook("SessionStart", source=source).stdout, "")
+            after = self.state()["session-1"]
+            for key in ("generation_id", "compact_count", "last_reminded_count"):
+                self.assertEqual(after[key], before[key])
+            self.assertEqual(json.loads(self.run_hook("Stop").stdout), {"continue": True})
+        for _ in range(4):
+            self.record_compact(threshold=5)
+        result = self.run_hook("PostCompact", trigger="manual", threshold=5)
+        self.assertIn(" 10 ", json.loads(result.stdout)["systemMessage"])
 
-    def test_threshold_recurs_after_each_handoff(self) -> None:
-        identities = []
-        for expected_request in (1, 2):
-            for _ in range(3):
-                self.record_compact(threshold=3)
-            output = json.loads(self.run_hook("Stop", threshold=3).stdout)
-            self.assertEqual(output["decision"], "block")
-            identities.append(self.dispatch_identity(output["reason"]))
-            entry = self.state()["session-1"]
-            self.assertEqual(entry["handoff_requests"], expected_request)
-            self.assertEqual(entry["compact_count_since_handoff"], 0)
-            continuation = self.run_hook(
-                "Stop", threshold=3, stop_hook_active=True
-            )
-            self.assertEqual(
-                json.loads(continuation.stdout), {"continue": True}
-            )
+    def test_resume_does_not_turn_redelivery_into_new_compaction(self) -> None:
+        self.run_hook("PostCompact", trigger="auto")
+        self.run_hook("SessionStart", source="resume")
+        self.run_hook("PostCompact", trigger="auto")
+        self.assertEqual(self.state()["session-1"]["compact_count"], 1)
 
+    def test_clear_resets_reminder_cadence(self) -> None:
+        for _ in range(5):
+            self.record_compact(threshold=5)
+        self.run_hook("SessionStart", source="clear")
         entry = self.state()["session-1"]
-        self.assertEqual(entry["total_compactions"], 6)
-        self.assertEqual(identities[0], identities[1])
-        self.assertEqual(identities[0]["skill_file"], str(SKILL.resolve()))
+        self.assertEqual(entry["compact_count"], 0)
+        self.assertEqual(entry["last_reminded_count"], 0)
+        self.assertEqual(entry["total_compactions"], 5)
+        for _ in range(4):
+            self.record_compact(threshold=5)
+        result = self.run_hook("PostCompact", trigger="auto", threshold=5)
+        self.assertIn(" 5 ", json.loads(result.stdout)["systemMessage"])
 
-    def test_competing_handoff_skill_is_never_selected(self) -> None:
-        plugin_root = self.base / "plugin"
-        correct = self.make_skill(plugin_root, "codex-handoff", "correct workflow")
-        wrong = self.make_skill(
-            self.base / "profile", "handoff", WRONG_MARKER
-        )
+    def test_sessions_are_isolated(self) -> None:
+        self.run_hook("PostCompact", session_id="other", threshold=1)
+        result = self.run_hook("PostCompact", threshold=5)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(self.state()["session-1"]["compact_count"], 1)
 
-        self.run_hook("PostCompact", threshold=1, plugin_root=plugin_root)
-        output = json.loads(
-            self.run_hook("Stop", threshold=1, plugin_root=plugin_root).stdout
-        )
-        identity = self.dispatch_identity(output["reason"])
-        self.assertEqual(identity["skill_file"], str(correct.resolve()))
-        self.assertNotIn(str(wrong.resolve()), output["reason"])
-        self.assertNotIn(WRONG_MARKER, output["reason"])
+    def test_stop_never_dispatches_even_with_continuation_flag(self) -> None:
+        for active in (False, True):
+            result = self.run_hook("Stop", stop_hook_active=active)
+            self.assertEqual(json.loads(result.stdout), {"continue": True})
 
-    def test_missing_own_skill_fails_clearly_without_fallback(self) -> None:
-        plugin_root = self.base / "plugin"
-        wrong = self.make_skill(
-            self.base / "profile", "handoff", WRONG_MARKER
-        )
+    def test_missing_identity_cannot_block_reminder(self) -> None:
+        result = self.run_hook("PostCompact", threshold=1, plugin_root=self.base / "missing")
+        self.assertEqual(set(json.loads(result.stdout)), {"continue", "systemMessage"})
+        self.assertFalse((self.base / "workspace" / "docs").exists())
 
-        self.run_hook("PostCompact", threshold=1, plugin_root=plugin_root)
-        output = json.loads(
-            self.run_hook("Stop", threshold=1, plugin_root=plugin_root).stdout
-        )
-
-        self.assertEqual(output["decision"], "block")
-        self.assertIn("CODEX_HANDOFF_SKILL_UNAVAILABLE", output["reason"])
-        self.assertIn(
-            str(
-                (plugin_root / "skills" / "codex-handoff" / "SKILL.md").resolve()
-            ),
-            output["reason"],
-        )
-        self.assertIn("Do not search for or invoke another handoff", output["reason"])
-        self.assertNotIn(str(wrong.resolve()), output["reason"])
-        self.assertNotIn(WRONG_MARKER, output["reason"])
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["compact_count_since_handoff"], 1)
-        self.assertFalse(entry["pending_handoff"])
-        self.assertEqual(entry["handoff_requests"], 0)
-
-    def test_profile_skill_path_has_same_deterministic_identity(self) -> None:
-        profile_skill = self.make_skill(
-            self.base / "home" / ".agents", "codex-handoff", "profile workflow"
-        )
-        self.run_hook(
-            "PostCompact",
-            threshold=1,
-            plugin_root=None,
-            profile_skill=profile_skill,
-        )
-        output = json.loads(
-            self.run_hook(
-                "Stop",
-                threshold=1,
-                plugin_root=None,
-                profile_skill=profile_skill,
-            ).stdout
-        )
-        identity = self.dispatch_identity(output["reason"])
-        self.assertEqual(identity["name"], "codex-handoff")
-        self.assertEqual(identity["skill_file"], str(profile_skill.resolve()))
-
-    def test_stop_hook_active_preserves_pending_before_normal_stop(self) -> None:
-        self.run_hook("PostCompact", threshold=1)
-        result = self.run_hook("Stop", threshold=1, stop_hook_active=True)
+    def test_missing_session_id_stop_returns_valid_json(self) -> None:
+        result = self.run_hook("Stop", session_id=None)
         self.assertEqual(json.loads(result.stdout), {"continue": True})
-        self.assertTrue(self.state()["session-1"]["pending_handoff"])
+        self.assertFalse(self.data_dir.exists())
 
-        result = self.run_hook("Stop", threshold=1, stop_hook_active=False)
-        self.assertEqual(json.loads(result.stdout)["decision"], "block")
+    def test_unknown_event_does_not_create_state(self) -> None:
+        result = self.run_hook("Unknown")
+        self.assertEqual(result.stdout, "")
+        self.assertFalse(self.data_dir.exists())
 
-    def test_continuation_stop_does_not_dispatch_again(self) -> None:
-        self.run_hook("PostCompact", threshold=1)
-        first = json.loads(self.run_hook("Stop", threshold=1).stdout)
-        self.assertEqual(first["decision"], "block")
+    def test_manual_compact_uses_same_cadence(self) -> None:
+        for _ in range(4):
+            self.record_compact(threshold=5, trigger="manual")
+        result = self.run_hook("PostCompact", threshold=5, trigger="manual")
+        self.assertIn("systemMessage", json.loads(result.stdout))
 
-        continuation = self.run_hook(
-            "Stop", threshold=1, stop_hook_active=True
-        )
-        self.assertEqual(json.loads(continuation.stdout), {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["handoff_requests"], 1)
-        self.assertEqual(entry["compact_count_since_handoff"], 0)
-        self.assertFalse(entry["pending_handoff"])
-        self.assertEqual(self.events()[-1]["action"], "continuation_stop")
-
-    def test_compact_during_handoff_continuation_is_not_counted(self) -> None:
-        self.run_hook("PostCompact", threshold=1, turn_id="turn-handoff")
-        first = json.loads(
-            self.run_hook("Stop", threshold=1, turn_id="turn-handoff").stdout
-        )
-        self.assertEqual(first["decision"], "block")
-
-        self.run_hook("PostCompact", threshold=1, turn_id="turn-handoff")
-        self.run_hook(
-            "SessionStart", threshold=1, turn_id=None, source="compact"
-        )
-        continuation = self.run_hook(
-            "Stop",
-            threshold=1,
-            turn_id="turn-handoff",
-            stop_hook_active=True,
-        )
-
-        self.assertEqual(json.loads(continuation.stdout), {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["handoff_requests"], 1)
-        self.assertEqual(entry["compact_count_since_handoff"], 0)
-        self.assertEqual(entry["total_compactions"], 1)
-        self.assertFalse(entry["pending_handoff"])
-        self.assertFalse(entry["handoff_continuation_active"])
-        self.assertEqual(
-            self.events()[-3]["action"],
-            "handoff_continuation_compact_ignored",
-        )
-
-    def test_plugin_data_config_sets_threshold(self) -> None:
-        self.data_dir.mkdir(parents=True)
-        (self.data_dir / "config.json").write_text(
-            '{"compact_threshold": 2}\n', encoding="utf-8"
-        )
+    def test_plugin_config_and_environment_precedence(self) -> None:
+        self.data_dir.mkdir()
+        (self.data_dir / "config.json").write_text('{"compact_threshold": 2}')
         self.record_compact(threshold=None)
-        self.record_compact(threshold=None)
-        output = json.loads(self.run_hook("Stop", threshold=None).stdout)
-        self.assertEqual(output["decision"], "block")
-        self.assertIn("threshold of 2", output["reason"])
+        result = self.run_hook("PostCompact", threshold=None)
+        self.assertIn("systemMessage", json.loads(result.stdout))
+        self.run_hook("SessionStart", source="clear")
+        result = self.run_hook("PostCompact", threshold=1)
+        self.assertIn("systemMessage", json.loads(result.stdout))
 
-    def test_old_and_corrupt_entries_do_not_break_hook(self) -> None:
-        self.data_dir.mkdir(parents=True)
-        stale = time.time() - 31 * 24 * 60 * 60
-        (self.data_dir / "state.json").write_text(
-            json.dumps(
-                {
-                    "old-session": {"updated_at": stale, "count": 99},
-                    "session-1": {
-                        "updated_at": "invalid",
-                        "count": "invalid",
-                        "handoff_requests": "invalid",
-                    },
-                }
-            ),
-            encoding="utf-8",
-        )
-        result = self.run_hook("PostCompact")
+    def test_invalid_threshold_falls_back_to_five(self) -> None:
+        for _ in range(4):
+            self.record_compact(threshold=0)
+        result = self.run_hook("PostCompact", threshold=0)
+        self.assertIn(" 5 ", json.loads(result.stdout)["systemMessage"])
+
+    def test_old_pending_cannot_dispatch_or_count_as_new_evidence(self) -> None:
+        self.data_dir.mkdir()
+        (self.data_dir / "state.json").write_text(json.dumps({"session-1": {
+            "count": 100, "total_compactions": 100,
+            "pending_handoff": True, "handoff_continuation_active": True,
+            "updated_at": time.time(),
+        }}))
+        self.assertEqual(json.loads(self.run_hook("Stop").stdout), {"continue": True})
+        self.assertEqual(self.state()["session-1"]["compact_count"], 0)
+        result = self.run_hook("PostCompact", threshold=5)
+        self.assertEqual(result.stdout, "")
+
+    def test_schema_two_receipts_migrate_without_old_dispatch(self) -> None:
+        self.record_compact(threshold=5)
+        state = self.state()
+        state["session-1"].update(schema_version=2, pending_handoff=True,
+                                  handoff_continuation_active=True, total_compactions=90)
+        (self.data_dir / "state.json").write_text(json.dumps(state))
+        self.run_hook("SessionStart", source="resume")
+        self.assertEqual(self.state()["session-1"]["compact_count"], 1)
+        for _ in range(3):
+            self.record_compact(threshold=5)
+        result = self.run_hook("PostCompact", threshold=5)
+        self.assertIn(" 5 ", json.loads(result.stdout)["systemMessage"])
+
+    def test_counter_continues_beyond_receipt_window(self) -> None:
+        self.record_compact(threshold=5)
+        state = self.state()
+        state["session-1"].update(compact_count=259, last_reminded_count=255)
+        (self.data_dir / "state.json").write_text(json.dumps(state))
+        result = self.run_hook("PostCompact", threshold=5)
+        self.assertIn(" 260 ", json.loads(result.stdout)["systemMessage"])
+        self.assertEqual(self.state()["session-1"]["compact_count"], 260)
+
+    def test_inactive_generation_ignores_delayed_compact(self) -> None:
+        self.run_hook("SessionEnd")
+        self.assertEqual(self.run_hook("PostCompact").stdout, "")
+        self.assertEqual(self.state()["session-1"]["compact_count"], 0)
+
+    def test_corrupt_state_is_recoverable(self) -> None:
+        self.data_dir.mkdir()
+        (self.data_dir / "state.json").write_text("not json")
+        result = self.run_hook("PostCompact", threshold=5)
         self.assertEqual(result.returncode, 0, result.stderr)
-        state = self.state()
-        self.assertNotIn("old-session", state)
-        self.assertEqual(state["session-1"]["compact_count_since_handoff"], 1)
+        self.assertEqual(self.state()["session-1"]["compact_count"], 1)
 
-    def test_audit_log_is_local_and_records_no_prompt(self) -> None:
-        self.run_hook("PostCompact")
-        records = [
-            json.loads(line)
-            for line in (self.data_dir / "events.jsonl")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        ]
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["event"], "PostCompact")
-        self.assertNotIn("prompt", records[0])
-        self.assertNotIn("transcript_path", records[0])
-
-    def test_handoff_audit_records_stable_skill_provenance(self) -> None:
+    def test_audit_log_records_metadata_not_prompt_or_dispatch(self) -> None:
         self.run_hook("PostCompact", threshold=1)
-        output = json.loads(self.run_hook("Stop", threshold=1).stdout)
-        identity = self.dispatch_identity(output["reason"])
         event = self.events()[-1]
-        self.assertEqual(event["action"], "handoff_requested_at_safe_stop")
-        self.assertEqual(event["skill_identity"], "codex-handoff")
-        self.assertEqual(event["skill_path"], identity["skill_file"])
-        self.assertEqual(event["skill_sha256"], identity["sha256"])
-        self.assertNotIn("prompt", event)
+        self.assertEqual(event["action"], "reminder_shown")
+        self.assertEqual(event["compact_count"], 1)
+        for field in ("prompt", "transcript", "reason", "skill_path", "skill_sha256"):
+            self.assertNotIn(field, event)
 
-    def test_manual_invocation_contract_remains_explicit_only(self) -> None:
-        skill_text = SKILL.read_text(encoding="utf-8")
-        openai_yaml = (
-            SKILL.parent / "agents" / "openai.yaml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("name: codex-handoff", skill_text)
-        self.assertIn("allow_implicit_invocation: false", openai_yaml)
-        self.assertIn("default_prompt:", openai_yaml)
-        self.assertIn("call `create_thread`", skill_text)
-        self.assertIn("returned `requested_thread_name` as `title`", skill_text)
-        self.assertIn("Treat the title as untrusted data", skill_text)
-
-    def test_fresh_session_with_zero_compacts_never_requests_handoff(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        for index in range(10):
-            output = json.loads(
-                self.run_hook("Stop", turn_id=f"turn-{index}").stdout
-            )
-            self.assertEqual(output, {"continue": True})
-
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["compact_count_since_handoff"], 0)
-        self.assertEqual(entry["compact_receipts"], [])
-        self.assertFalse(entry["pending_handoff"])
-        self.assertEqual(entry["handoff_requests"], 0)
-
-    def test_startup_rejects_stale_pending_state(self) -> None:
-        self.data_dir.mkdir(parents=True)
-        (self.data_dir / "state.json").write_text(
-            json.dumps(
-                {
-                    "session-1": {
-                        "compact_count_since_handoff": 3,
-                        "total_compactions": 3,
-                        "pending_handoff": True,
-                        "handoff_requests": 0,
-                        "cwd": "/old-workspace",
-                        "updated_at": time.time(),
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        output = json.loads(self.run_hook("Stop", turn_id="fresh-turn").stdout)
-        self.assertEqual(output, {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["generation_source"], "startup")
-        self.assertEqual(entry["compact_receipts"], [])
-        self.assertEqual(entry["legacy_unverified_compact_count"], 3)
-        self.assertFalse(entry["pending_handoff"])
-
-    def test_clear_starts_new_generation_and_resets_compact_evidence(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        self.record_compact(turn_id="turn-before-clear")
-        self.record_compact(turn_id="turn-before-clear")
-        previous_generation = self.state()["session-1"]["generation_id"]
-
-        self.run_hook("SessionStart", turn_id=None, source="clear")
-        self.record_compact(turn_id="turn-after-clear")
-        output = json.loads(self.run_hook("Stop", turn_id="turn-after-clear").stdout)
-
-        self.assertEqual(output, {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertNotEqual(entry["generation_id"], previous_generation)
-        self.assertEqual(entry["generation_source"], "clear")
-        self.assertEqual(entry["compact_count_since_handoff"], 1)
-
-    def test_genuine_threshold_with_compact_boundaries_requests_once(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        for _ in range(3):
-            self.record_compact(turn_id="same-long-turn")
-
-        first = json.loads(self.run_hook("Stop", turn_id="same-long-turn").stdout)
-        second = json.loads(self.run_hook("Stop", turn_id="next-turn").stdout)
-        self.assertEqual(first["decision"], "block")
-        self.assertEqual(second, {"continue": True})
-        self.assertEqual(self.state()["session-1"]["handoff_requests"], 1)
-
-    def test_duplicate_postcompact_payload_counts_only_once(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        self.run_hook("PostCompact", turn_id="turn-duplicate", trigger="auto")
-        self.run_hook("PostCompact", turn_id="turn-duplicate", trigger="auto")
-
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["compact_count_since_handoff"], 1)
-        self.assertEqual(len(entry["compact_receipts"]), 1)
-        self.assertTrue(self.events()[-1]["duplicate"])
-
-    def test_recurring_handoffs_use_independent_receipts(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        receipt_sets = []
-        for cycle in range(2):
-            for _ in range(3):
-                self.record_compact(turn_id=f"turn-{cycle}")
-            receipt_sets.append(
-                {
-                    receipt["receipt_id"]
-                    for receipt in self.state()["session-1"]["compact_receipts"]
-                }
-            )
-            output = json.loads(
-                self.run_hook("Stop", turn_id=f"turn-{cycle}").stdout
-            )
-            self.assertEqual(output["decision"], "block")
-            continuation = self.run_hook(
-                "Stop",
-                turn_id=f"turn-{cycle}",
-                stop_hook_active=True,
-            )
-            self.assertEqual(
-                json.loads(continuation.stdout), {"continue": True}
-            )
-
-        self.assertTrue(receipt_sets[0].isdisjoint(receipt_sets[1]))
-        self.assertEqual(self.state()["session-1"]["handoff_requests"], 2)
-
-    def test_resume_cannot_inherit_pending_from_previous_generation(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        for _ in range(3):
-            self.record_compact(turn_id="old-turn")
-        self.assertTrue(self.state()["session-1"]["pending_handoff"])
-
-        self.run_hook("SessionStart", turn_id=None, source="resume")
-        output = json.loads(self.run_hook("Stop", turn_id="resumed-turn").stdout)
-        self.assertEqual(output, {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertEqual(entry["generation_source"], "resume")
-        self.assertEqual(entry["compact_receipts"], [])
-        self.assertFalse(entry["pending_handoff"])
-
-    def test_stop_revalidates_receipts_instead_of_trusting_pending_flag(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        state = self.state()
-        state["session-1"]["pending_handoff"] = True
-        (self.data_dir / "state.json").write_text(
-            json.dumps(state), encoding="utf-8"
-        )
-
-        output = json.loads(self.run_hook("Stop", turn_id="safe-stop").stdout)
-        self.assertEqual(output, {"continue": True})
-        self.assertFalse(self.state()["session-1"]["pending_handoff"])
-        self.assertEqual(self.events()[-1]["action"], "stale_pending_rejected")
-
-    def test_session_end_deactivates_generation(self) -> None:
-        self.run_hook("SessionStart", turn_id=None, source="startup")
-        for _ in range(3):
-            self.record_compact(turn_id="ending-turn")
-        self.run_hook("SessionEnd", turn_id=None)
-
-        output = json.loads(self.run_hook("Stop", turn_id="late-stop").stdout)
-        self.assertEqual(output, {"continue": True})
-        entry = self.state()["session-1"]
-        self.assertFalse(entry["generation_active"])
-        self.assertFalse(entry["pending_handoff"])
+    def test_manual_skill_remains_explicit_only(self) -> None:
+        policy = (SKILL.parent / "agents" / "openai.yaml").read_text()
+        self.assertIn("allow_implicit_invocation: false", policy)
 
 
 if __name__ == "__main__":

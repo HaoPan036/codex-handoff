@@ -17,9 +17,9 @@ python3 scripts/validate_package.py
 
 - `PostCompact` records state and emits no steering decision.
 - `Stop` always emits valid JSON when the hook exits with status 0.
-- `decision: block` is used only to schedule one safe continuation.
-- `stop_hook_active` prevents a continuation loop.
-- The per-handoff compact counter resets after a handoff request.
+- No hook emits a blocking decision or invokes the Skill; `PostCompact` may emit a non-blocking `systemMessage` reminder.
+- Remind at counts N, 2N, 3N (default N=5), once per milestone; `Stop` never dispatches work.
+- Keep counts and reminder state across resume/startup of the same session; clear/new sessions start a new cadence.
 - The hook performs no network call and no repository mutation.
 - The Skill updates only `docs/CODEX_HANDOFF.md` during handoff preparation.
 

@@ -181,6 +181,9 @@ trust_level = "trusted"
             self.assertIn("Compact threshold: 5", result.stdout)
             config = (base / "codex" / "config.toml").read_text(encoding="utf-8")
             self.assertIn("CODEX_HANDOFF_COMPACT_THRESHOLD=5", config)
+            self.assertIn("Restoring Codex compaction reminder state", config)
+            self.assertIn("Finishing without automatic handoff", config)
+            self.assertNotIn("Stop schedules the handoff", config)
 
     def test_doctor_reports_plugin_and_profile_duplicate_risk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -235,7 +238,7 @@ command = \"CODEX_HANDOFF_SKILL_PATH=/tmp/SKILL.md python3 /tmp/codex_handoff_ho
                 install_result.stdout + install_result.stderr,
             )
             self.assertIn("WARNING", install_result.stderr)
-            self.assertIn("execute handoffs twice", install_result.stderr)
+            self.assertIn("duplicate reminders", install_result.stderr)
 
 
 if __name__ == "__main__":

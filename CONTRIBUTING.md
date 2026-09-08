@@ -6,10 +6,10 @@ Thank you for helping improve reliable long-session continuation for Codex.
 
 Changes must preserve these properties:
 
-1. `PostCompact` only records a completed compaction. It must not interrupt the active turn.
-2. Automatic handoff begins at a later `Stop` boundary.
+1. `PostCompact` records a completed compaction and may show a non-blocking reminder. It must not interrupt the active turn.
+2. Handoff begins only when the user explicitly invokes the Skill.
 3. Every successful `Stop` hook execution emits valid JSON.
-4. A handoff request resets the per-handoff counter so the threshold can recur.
+4. Reminders recur at N, 2N, 3N. Resume preserves the same session's count; clear starts a new cadence.
 5. The hook does not read transcripts, inspect repository content, call the network, or mutate project files.
 6. The Skill treats repository and verification evidence as stronger than chat history.
 7. The handoff workflow preserves staged, unstaged, and untracked work.

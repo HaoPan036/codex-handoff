@@ -7,29 +7,29 @@
 
 **Verified handoffs for long-running Codex sessions.**
 
-Repeated context compaction can make it harder for Codex to know what is actually true in the repository. Codex Handoff waits for a safe turn boundary, rebuilds continuation state from repository evidence, and records it in `docs/CODEX_HANDOFF.md` for a clean session.
+The hook reminds you at 5, 10, 15… completed compactions without interrupting work. You decide when to invoke `$codex-handoff`; the Skill then rebuilds continuation state from repository evidence in `docs/CODEX_HANDOFF.md`. The count is a reminder cadence, not a model-quality limit.
 
 [中文说明](README.zh-CN.md)
 
 ![Real Codex terminal demo showing verified repository state, three completed compactions, a safe Stop handoff, and a validated CODEX_HANDOFF.md](docs/assets/codex-handoff-demo.gif)
 
-<p align="center"><sub>Real Codex host run, cropped for privacy and pacing. Three completed compactions trigger one safe handoff; the handoff validates and leaves a clean-session prompt ready.</sub></p>
+<p align="center"><sub>Historical automatic-handoff demo, not the current reminder-only behavior. The new reminder UI still needs a fresh host smoke test.</sub></p>
 
 | Safe timing | Verified state | Clean continuation |
 | --- | --- | --- |
-| Waits until the active turn reaches a normal `Stop` boundary. | Reconstructs state from Git, repository files, tests, artifacts, and `AGENTS.md`. | Creates a structured, validated `docs/CODEX_HANDOFF.md` for the next session. |
+| Non-blocking reminders; handoff only on explicit invocation. | Reconstructs state from Git, repository files, tests, artifacts, and `AGENTS.md`. | Creates a structured, validated `docs/CODEX_HANDOFF.md` for the next session. |
 
 ## Quick start
 
-The profile installer remains the shortest setup path. The Plugin package has passed isolated CLI installation checks and real Codex host tests covering Hook trust, recurring thresholds, exact Skill identity, validated handoff updates, and loop prevention. In the desktop app, a clean continuation can be created with its numbered title already applied; portable hosts retain the explicit prefilled-composer path where you press **Send**.
+The profile installer installs the explicit-only Skill and reminder hook. The reminder-only revision has isolated test coverage, not a new host/UI acceptance result. Desktop native task creation and the portable prefilled-composer path remain unchanged.
 
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
-bash install.sh 3
+bash install.sh 5
 ```
 
-Restart Codex, review and trust the installed hooks, then work normally. The final argument is the number of completed compactions before a handoff is scheduled.
+Restart Codex, review and trust the installed hooks, then work normally. The final argument is the number of completed compactions between reminders.
 
 You can request a handoff at any milestone without waiting for the threshold:
 
@@ -41,7 +41,7 @@ The result is written to `docs/CODEX_HANDOFF.md`. Use `$codex-handoff handoff on
 
 ## Why Codex Handoff
 
-A long task can survive one context compaction. After several compactions, it becomes harder for a continuing session to answer basic questions with confidence:
+Compaction count alone does not establish quality loss. At a milestone or when project state becomes unclear, a handoff helps verify:
 
 - What is already complete?
 - Which files are staged, unstaged, or untracked?
@@ -53,47 +53,14 @@ A chat summary can repeat what the conversation said. Codex Handoff instead crea
 
 ## How it works
 
-The automatic lifecycle separates counting from action. `SessionStart` isolates `startup`, `clear`, and `resume` generations. `PostCompact` records a receipt in the current generation and never steers the model; the following `SessionStart(source=compact)` establishes the boundary that lets another compaction in the same long turn receive a distinct receipt. Duplicate delivery before that boundary is ignored. Reaching the threshold only marks a handoff as pending. The current task, tool call, test, or subagent continues until the turn naturally reaches `Stop`.
+`PostCompact` deduplicates completed compactions and shows a `systemMessage` reminder at N, 2N, 3N (default N=5). `Stop` always returns `continue: true`, without dispatching work. `SessionStart(source=compact)` separates genuine compactions within one turn; resume/startup of the same session preserves the count. Clear or a new session starts a new cadence. Inactive records expire after 30 days.
 
-At that boundary, `Stop` revalidates that the current generation contains enough receipts, then resolves its own Skill from the host-provided Plugin root (or the exact profile-installer path), verifies the Skill name, and records its SHA-256. The continuation verifies that identity again before reading the exact `SKILL.md`; it never searches for a similar handoff Skill. The workflow then inspects the repository, writes and validates the handoff, and uses native titled task creation when available. The portable deep-link fallback only pre-fills the prompt and requires **Send**.
-
-### Technical flow
-
-```mermaid
-flowchart LR
-    A[SessionStart startup, clear, or resume] --> B[Start isolated generation]
-    B --> C[Record unique PostCompact receipt]
-    C --> D{Threshold reached?}
-    D -- No --> E[Continue current task]
-    D -- Yes --> F[Mark handoff pending]
-    F --> E
-    E --> G[Current turn reaches Stop]
-    G --> H[Revalidate receipts and bind exact Skill]
-    H --> I[Verify identity and collect evidence]
-    I --> J[Create and validate docs/CODEX_HANDOFF.md]
-    J --> K[Resolve the next familiar task name]
-    K --> L{Native task controls available?}
-    L -- Yes --> M[Create titled clean task]
-    L -- No --> N[Open prefilled composer]
-    N --> O[User presses Send]
+```text
+unique PostCompact -> count -> milestone? -> non-blocking reminder
+user invokes $codex-handoff -> verify evidence -> save handoff -> clean continuation
 ```
 
-See [docs/design.md](docs/design.md) for the state machine, trust boundary, and evidence hierarchy.
-
-## Automatic handoff
-
-With the default threshold of 5:
-
-1. Five unique completed `PostCompact` receipts are recorded in the current lifecycle generation.
-2. The active task continues without interruption.
-3. At the next normal `Stop`, the hook binds the continuation to its exact `codex-handoff/SKILL.md` path and SHA-256.
-4. The continuation verifies that identity, reads only that workflow, creates or updates `docs/CODEX_HANDOFF.md`, validates it, and prepares a clean continuation.
-5. In the Codex desktop app, native task controls copy the current explicit title, calculate the next familiar sequence (`Name` → `Name2`, `Name2` → `Name3`), and apply it while creating the clean task. If no title is available, the workspace name is used.
-6. On hosts without native task creation, the portable helper opens a prefilled composer instead; press **Send**, and its first instruction requests the calculated title when task-title control is available.
-
-If the exact Skill or its verifier is unavailable, automatic handoff fails clearly with `CODEX_HANDOFF_SKILL_UNAVAILABLE`; it does not substitute `handoff` or any other similarly named Skill. Manual `$codex-handoff` invocation remains explicit-only.
-
-The per-handoff counter resets after the request, so another handoff can occur after the next configured number of compactions. While that handoff continuation is active, any host-emitted `PostCompact` is audited but excluded from the next cycle; the continuation's own response therefore cannot pre-fill the following handoff count. `stop_hook_active` prevents the continuation from scheduling itself again and closes this guard at its final `Stop`.
+Ignoring a reminder does nothing until the next milestone. It never writes a handoff, opens a session, or supplies continuation instructions to the model. See [docs/design.md](docs/design.md) for migration and state details.
 
 ## Manual handoff
 
@@ -109,7 +76,7 @@ To create and validate the document without opening a new session:
 $codex-handoff handoff only
 ```
 
-Manual use follows the same evidence and safety rules as the automatic flow.
+Only explicit manual invocation starts the handoff workflow; reminders are not authorization.
 
 The default command creates a titled clean task when native task controls are available; otherwise it prepares a composer and requires **Send**. `handoff only` stops after generation and validation.
 
@@ -143,7 +110,7 @@ During handoff preparation, the Skill is instructed to:
 - mark unverified material claims as `UNKNOWN`
 - exclude credentials, secrets, complete large logs, and full diffs
 
-The hook does not read repository files or transcripts. It receives lifecycle event metadata, updates a local counter and bounded audit log, and emits a continuation decision only at the configured boundary. It makes no network calls and performs no repository mutation. Codex Handoff has no telemetry.
+The hook does not read repository files or transcripts. It receives lifecycle event metadata, updates a local counter and bounded audit log, and shows a non-blocking reminder at the configured milestone. It makes no network calls and performs no repository mutation. Codex Handoff has no telemetry.
 
 See [SECURITY.md](SECURITY.md) for the security boundary and reporting process.
 
@@ -156,7 +123,7 @@ The profile installer requires Python 3.11 or newer and installs the Skill and h
 ```bash
 git clone https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
-bash install.sh 3
+bash install.sh 5
 ```
 
 It:
@@ -166,7 +133,7 @@ It:
 - backs up and updates `~/.codex/config.toml`
 - removes hook blocks from earlier `codex-handoff-session` packages
 - preserves legacy lifetime totals for diagnostics while quarantining unverifiable active counters and pending flags
-- pins all four lifecycle Hook commands to the installed `~/.agents/skills/codex-handoff/SKILL.md`
+- retains the installed Skill path in profile commands for compatibility; the reminder hook does not load or invoke that file
 - warns when an enabled Plugin would run alongside the profile Hook
 
 Run the read-only installation diagnostic at any time:
@@ -179,7 +146,9 @@ Restart Codex and review the exact hook definition after installation.
 
 ### Codex Plugin Marketplace
 
-The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. The second `codex://new` call proved URL dispatch; it did not itself prove thread creation or automatic prompt submission. The official contract now confirms that prompt submission always requires the user.
+The following August tests describe the previous automatic-handoff version, not validation of the current reminder-only revision.
+
+The repository includes a Plugin package and marketplace metadata. On 2026-08-11, Codex CLI `0.147.0-alpha.6.5` successfully discovered and installed version `0.1.0` from both a local checkout and the public `HaoPan036/codex-handoff` shorthand in isolated `CODEX_HOME` directories. The public cached package matched the current manifest, Hook, Skill, and helper hashes. A model-backed Codex CLI session then trusted the bundled hooks and completed two host-emitted threshold cycles in a disposable repository: six real `PostCompact` events produced two safe handoff continuations, the per-handoff counter reset twice, both handoff documents passed validation, and each continuation ended without a loop. The second `codex://new` call proved URL dispatch; it did not itself prove thread creation or automatic prompt submission. The portable deep-link contract requires the user to send; native task creation is a separate path.
 
 See the [2026-08-14 lifecycle-isolation and continuation evidence](docs/smoke-test-2026-08-14.md), the [2026-08-12 Skill-identity regression evidence](docs/smoke-test-2026-08-12.md), and the [2026-08-11 lifecycle evidence with corrected identity and deep-link scope](docs/smoke-test-2026-08-11.md).
 
@@ -247,7 +216,7 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 - Python 3.11 or newer is required by the profile installer. Runtime helpers use only the Python standard library.
 - Packaged hook commands currently target macOS and Linux shells.
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
-- Local and public GitHub Marketplace discovery and installation have passed isolated smoke tests. Interactive Hook trust, host-emitted events, recurring threshold cycles, deterministic Skill-path and hash verification, validated handoffs, and loop prevention have passed model-backed macOS host tests. See the [identity evidence](docs/smoke-test-2026-08-12.md), the [earlier lifecycle evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
+- Historical automatic-handoff releases passed local and public GitHub Marketplace installation smoke tests; the reminder-only revision still needs fresh host acceptance. Interactive Hook trust, host-emitted events, recurring threshold cycles, deterministic Skill-path and hash verification, validated handoffs, and loop prevention have passed model-backed macOS host tests. See the [identity evidence](docs/smoke-test-2026-08-12.md), the [earlier lifecycle evidence](docs/smoke-test-2026-08-11.md), [the demo guide](docs/demo.md), and [the release checklist](docs/release-checklist.md).
 - The [`codex://new` continuation opener](https://developers.openai.com/codex/app/commands/#deeplinks) is best effort. A successful OS dispatch requests a new composer with the prompt prefilled; it does not verify thread creation and never submits the prompt automatically. Press **Send**. If dispatch fails, the helper prints the complete startup prompt for manual use.
 - The desktop path uses native task listing and titled task creation, so the numbered title is applied at creation. The portable path may use stable App Server `thread/read`, but a restricted nested Host sandbox can prevent that lookup; it then falls back to the workspace name. Requested and verified title fields remain separate.
 - A validated handoff remains useful when automatic session opening is unavailable.
@@ -261,7 +230,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-The tests cover fresh and resumed generations, stale-state rejection, duplicate compaction delivery, recurring receipts, exact Skill identity and failure, valid `Stop` JSON, loop prevention, doctor diagnostics, snapshot collection, handoff validation, deep-link result semantics, installer upgrades, and package metadata.
+The tests cover 5/10/15 reminders, silent intermediate/repeated events, resume/clear behavior, old-state migration, source-independent reminders, valid non-dispatching Stop output, identity helpers, doctor diagnostics, snapshot collection, handoff validation, deep-link semantics, installers, and package metadata.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/design.md](docs/design.md) before changing the lifecycle contract. See [docs/troubleshooting.md](docs/troubleshooting.md) for common installation and runtime problems.
 

@@ -1,7 +1,7 @@
 {
   "name": "codex-handoff",
   "version": "0.1.1",
-  "description": "Create evidence-backed project handoffs after repeated Codex context compactions.",
+  "description": "Remind after repeated compactions; create evidence-backed handoffs when explicitly requested.",
   "author": {
     "name": "Hao Pan",
     "url": "https://github.com/haopan036"
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Codex Handoff",
     "shortDescription": "Continue long Codex work in a clean session",
-    "longDescription": "Count completed context compactions, wait for a safe turn boundary, then create a verified repository handoff and continue in a clean Codex session.",
+    "longDescription": "Show non-blocking reminders every five completed compactions. When explicitly invoked, create a verified repository handoff and prepare a clean Codex session.",
     "developerName": "Hao Pan",
     "category": "Productivity",
     "capabilities": [

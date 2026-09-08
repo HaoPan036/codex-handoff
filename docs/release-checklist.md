@@ -1,5 +1,14 @@
 # Release checklist
 
+## Reminder-only revision acceptance
+
+- [x] Run the new reminder tests and package validation for the source revision (2026-09-08: Python 3.11, 37 tests passed, package validation passed).
+- [ ] In a disposable Host session, observe reminders at 5/10/15 only; ignoring them never starts handoff.
+- [ ] Verify resume persistence, clear reset, and explicit manual handoff.
+- [ ] Record actual new-session startup separately from queued creation or composer prefill.
+
+The checked items below are historical automatic-handoff release evidence, not acceptance of this revision.
+
 ## Code and tests
 
 - [x] `python3 -m unittest discover -s tests -v` passes.

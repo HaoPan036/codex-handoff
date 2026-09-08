@@ -8,7 +8,7 @@
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
             "timeout": 10,
-            "statusMessage": "Isolating Codex handoff lifecycle state"
+            "statusMessage": "Restoring Codex compaction reminder state"
           }
         ]
       }
@@ -33,7 +33,7 @@
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_handoff_hook.py\"",
             "timeout": 10,
-            "statusMessage": "Checking Codex handoff threshold"
+            "statusMessage": "Finishing without automatic handoff"
           }
         ]
       }

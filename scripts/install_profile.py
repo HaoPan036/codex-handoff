@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         "--threshold",
         type=int,
         default=5,
-        help="Completed compactions before a handoff is scheduled. Default: 3.",
+        help="Completed compactions between non-blocking reminders. Default: 5.",
     )
     parser.add_argument(
         "--home",
@@ -117,7 +117,7 @@ def build_config(
     block = f"""
 
 {BEGIN_MARKER}
-# SessionStart isolates startup, clear, and resume generations. A compact start
+# SessionStart preserves counts across startup/resume and resets on clear. A compact start
 # acknowledges the preceding PostCompact receipt so repeated payloads can be
 # distinguished from multiple compactions inside one long turn.
 [[hooks.SessionStart]]
@@ -127,10 +127,10 @@ matcher = "^(startup|resume|clear|compact)$"
 type = "command"
 command = {quoted_command}
 timeout = 10
-statusMessage = "Isolating Codex handoff lifecycle state"
+statusMessage = "Restoring Codex compaction reminder state"
 
 # PostCompact records only completed compactions.
-# Stop schedules the handoff after the current turn reaches a safe boundary.
+# Milestones only emit reminders; Stop never schedules a handoff.
 [[hooks.PostCompact]]
 matcher = "^(manual|auto)$"
 
@@ -146,7 +146,7 @@ statusMessage = "Recording completed compaction"
 type = "command"
 command = {quoted_command}
 timeout = 10
-statusMessage = "Checking Codex handoff threshold"
+statusMessage = "Finishing without automatic handoff"
 
 [[hooks.SessionEnd]]
 
@@ -338,8 +338,8 @@ def main() -> int:
     if duplicate_plugin_risk:
         print(
             "WARNING: the Codex Handoff Plugin is enabled while this profile Hook "
-            "installation is active. Codex loads both sources, which can execute "
-            "handoffs twice. Disable one installation and run scripts/doctor.py.",
+            "installation is active. Codex loads both sources, which can show "
+            "duplicate reminders. Disable one installation and run scripts/doctor.py.",
             file=sys.stderr,
         )
     if config_backup is not None:

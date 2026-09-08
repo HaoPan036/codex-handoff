@@ -9,20 +9,11 @@ Plugin: plugins/codex-handoff/skills/codex-handoff/SKILL.md
 Profile: ~/.agents/skills/codex-handoff/SKILL.md
 ```
 
-For profile installation, rerun `bash install.sh 3` and inspect its printed paths.
+For profile installation, rerun `bash install.sh 5` and inspect its printed paths.
 
-## Automatic handoff reports `CODEX_HANDOFF_SKILL_UNAVAILABLE`
+## An automatic handoff still starts
 
-The Hook could not verify its own exact workflow file. Do not work around this by selecting another `handoff` Skill.
-
-- Plugin mode: remove and reinstall `codex-handoff@codex-handoff`, start a new session, and review the refreshed hooks. The Hook resolves only `${PLUGIN_ROOT}/skills/codex-handoff/SKILL.md`.
-- Profile mode: rerun `bash install.sh 3`. The installer rewrites `CODEX_HANDOFF_SKILL_PATH` in both Hook commands to the exact installed Skill.
-
-The compact count is preserved. After repair, the next completed compaction can schedule another safe retry.
-
-## Automatic handoff selected another `handoff` Skill
-
-Version `0.1.0` continuation text could be treated as ordinary prompt text by the Host, allowing the model to choose a similarly named Skill. Reinstall a version containing the deterministic identity fix and start a new session. A fixed audit record named `handoff_requested_at_safe_stop` includes `skill_identity`, `skill_path`, `skill_sha256`, and `skill_resolver`; the continuation trace includes a successful `verify_identity.py` receipt. Absence of those fields means an older cached Hook is still active.
+The reminder-only hook never invokes a Skill or returns a blocking decision. An automatic handoff indicates an older installation or another hook. Run `python3 scripts/doctor.py` and review `/hooks`; do not assume this source checkout is already installed. Historical automatic-dispatch identity diagnostics remain in the dated smoke-test records.
 
 ## Compact events are not counted
 
@@ -55,13 +46,9 @@ jq . ~/.codex/codex-handoff/state.json
 tail -n 50 ~/.codex/codex-handoff/events.jsonl
 ```
 
-Look for the same `generation_id`, unique `receipt_id` values, `duplicate`, `compact_count_since_handoff`, and the final Stop `action`. A fresh `startup`, `clear`, or `resume` generation must start with zero active receipts. `stale_pending_rejected` means Stop found a pending flag without enough current-generation evidence and safely ignored it.
+Look for `compact_count`, `last_reminded_count`, `reminder_shown`, and `duplicate_compact_ignored`. Counts persist across resume/startup of the same session. Clear starts at zero. `Stop` never creates a handoff; reminders recur at N, 2N, 3N only. Legacy totals do not seed new reminders without verifiable receipts.
 
-## The handoff triggers only once
-
-Versions before `0.1.0` could retain a lifetime counter and never establish a new threshold window. Reinstall `0.1.0` or newer. The current state uses `compact_count_since_handoff` and resets it after every handoff request.
-
-## The handoff runs twice after Plugin installation
+## The hook runs twice after Plugin installation
 
 Codex loads matching hooks from every active source. Installing the Plugin does not disable hooks left in `~/.codex/config.toml` by an earlier profile-installed `codex-handoff-session` v4.
 
@@ -75,7 +62,7 @@ This removes the current and legacy profile Skill and Hook entries while retaini
 
 ## Stop Hook reports invalid output
 
-Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hook emits `{"continue": true}` on every successful non-handoff `Stop` path.
+Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hook emits `{"continue": true}` on every successful `Stop` path.
 
 ## A new composer opened but the continuation did not start
 
