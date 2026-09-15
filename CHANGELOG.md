@@ -2,6 +2,16 @@
 
 All notable changes are documented here.
 
+## 0.2.1, 2026-09-15
+
+### Fixed
+
+- Explicit handoffs now automatically create, name, and start a continuation in the exact workspace, including worktrees absent from saved projects. The portable path uses the documented Codex App Server instead of an unsent deep-link composer.
+- Keep the owned App Server alive through the initial continuation turn after the launcher exits. Verify cwd and title before sending; preserve partial-failure receipts without blindly retrying or opening duplicate composers.
+- Prefer the desktop-bundled CLI and allow an explicit executable override when a global CLI is incompatible or unavailable.
+- Make composer-only preparation an explicit `--manual` option. `--print-only` has no opening or sending side effect. Compaction hooks remain reminder-only.
+- Align Skill, bilingual documentation, package version checks, and focused continuation regressions with the new default. Source version and published GitHub release links are tracked separately.
+
 ## 0.2.0, 2026-09-08
 
 ### Changed

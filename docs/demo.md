@@ -1,10 +1,10 @@
-# v0.2.0 walkthrough
+# v0.2.1 walkthrough
 
 The homepage [workflow illustration](assets/codex-handoff-flow.svg) shows the current reminder-only behavior. It is a diagram, not a terminal recording. The [September 8 acceptance record](smoke-test-2026-09-08.md) identifies the host, source hashes, real events, observed results, and remaining limits.
 
 ## 1. Keep working through reminders
 
-Install v0.2.0 using one of the README installation paths, restart Codex, and review the exact hooks before trusting them. Use a disposable repository for a demo.
+Install v0.2.1 using one of the README installation paths, restart Codex, and review the exact hooks before trusting them. Use a disposable repository for a demo.
 
 At the default interval of five, completed compactions produce this cadence:
 
@@ -47,11 +47,11 @@ Use Python 3.11 or newer. Document validation checks the contract and unresolved
 
 ## 3. Continue when ready
 
-For a handoff that also prepares a clean continuation, invoke `$codex-handoff` without `handoff only`.
+For a handoff that also starts a clean continuation, invoke `$codex-handoff` without `handoff only`.
 
-- A host with native task controls can create a titled task.
-- The portable helper requests a prefilled composer or prints the startup prompt if opening is unavailable.
-- A successful URL dispatch is not proof that a task was created or started. A prefilled composer still requires **Send**.
+- Native task controls create and start a titled task when the exact saved workspace matches.
+- Otherwise, the portable App Server helper creates, names, and starts it in the exact current directory, including worktrees.
+- Inspect task/turn IDs and verification fields. Only explicit `--manual` prepares a composer requiring Send; do not retry an uncertain automatic launch blindly.
 
 The release acceptance record states which of these paths were actually exercised. Do not infer fresh desktop UI or native task-creation coverage from a passing hook test.
 

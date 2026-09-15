@@ -60,16 +60,22 @@ verified handoff
   -> create local clean task with title and startup prompt
 ```
 
-When native task controls are unavailable, the helper uses the official [desktop deep-link contract](https://developers.openai.com/codex/app/commands/#deeplinks), which sets initial composer text but does not send it:
+When native controls cannot match the exact current workspace (including a worktree), the helper uses the documented [App Server protocol](https://learn.chatgpt.com/docs/app-server):
 
 ```text
 verified handoff
-  -> deep-link dispatch (best effort)
-  -> prefilled composer
-  -> user presses Send
+  -> thread/start with exact cwd
+  -> verify cwd, set numbered title, read title back
+  -> turn/start with startup prompt once
+  -> report task and turn IDs
+  -> detached worker keeps server alive until turn/completed
 ```
 
-Dispatch failure returns the full startup prompt for manual use, while the verified handoff remains complete. Outside a restricted nested Host sandbox, the portable helper can use stable App Server `thread/read` to resolve an explicit source name. If SQLite initialization is blocked by the sandbox, it reports that failure and falls back to the workspace name rather than claiming title verification.
+The worker owns a private stdio server, inherits normal Codex configuration, and makes no model or permission override. It saves no transcript or new diagnostic files. Closing the launching session does not close the worker. Interactive approval/input requests interrupt the initial turn for continuation in the task UI.
+
+A partial failure can leave a created task or submitted turn. Receipts retain the known IDs and stage; the launcher never retries creation or silently opens a composer. Inspect the existing task before recovery. The bundled desktop CLI is preferred when available, with an explicit executable override for other environments.
+
+`--manual` is an explicit opt-in to the official deep-link composer contract and requires Send. `--print-only` constructs a prompt without opening or sending. Source-name lookup uses `thread/read`; unavailable titles fall back transparently to the workspace name. Compaction reminders still never invoke this workflow.
 
 ## Duplicate installation diagnostics
 

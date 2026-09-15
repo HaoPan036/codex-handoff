@@ -28,7 +28,7 @@ The core does not hard-code a model name or context-window size. The [model-upda
 The profile installer installs the explicit-only Skill and reminder hook. Check that `python3 --version` is 3.11 or newer before installing.
 
 ```bash
-git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
+git clone --branch main https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
@@ -106,7 +106,7 @@ $codex-handoff handoff only
 
 Only explicit manual invocation starts the handoff workflow; reminders are not authorization.
 
-The default command creates a titled clean task when native task controls are available; otherwise it prepares a composer and requires **Send**. `handoff only` stops after generation and validation.
+The default command creates a titled clean task and automatically sends its startup message. When native controls cannot match the current worktree, App Server starts it in that same directory. Only explicit `--manual` preparation requires **Send**. `handoff only` stops after generation and validation.
 
 ## What `CODEX_HANDOFF.md` contains
 
@@ -149,7 +149,7 @@ See [SECURITY.md](SECURITY.md) for the security boundary and reporting process.
 The profile installer requires Python 3.11 or newer and installs the Skill and hooks directly into your user profile:
 
 ```bash
-git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
+git clone --branch main https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
@@ -184,7 +184,7 @@ If you are migrating from the profile-installed `codex-handoff-session` v4, do n
 
 Then open `/plugins` in Codex CLI or the Plugins Directory in the ChatGPT desktop app, install `Codex Handoff`, start a new session, and review the bundled hooks through `/hooks` before trusting them. The repository marketplace is at `.agents/plugins/marketplace.json`; the package is at `plugins/codex-handoff/`.
 
-When upgrading, refresh the marketplace and confirm the installed version is **0.2.0**. Restart the session and review the updated hooks. The profile installer and marketplace are alternative installation methods; keep only one active. Existing verified counts can seed the new cadence, but old pending handoffs never dispatch automatically.
+When upgrading, refresh the marketplace and confirm the installed version is **0.2.1**. Restart the session and review the updated hooks. The profile installer and marketplace are alternative installation methods; keep only one active. Existing verified counts can seed the new cadence, but old pending handoffs never dispatch automatically.
 
 The command shape and trust flow follow the official OpenAI documentation for [packaging Codex plugins](https://developers.openai.com/plugins/build/plugins) and [Codex hooks](https://developers.openai.com/codex/hooks).
 
@@ -237,14 +237,16 @@ The audit log rotates after approximately 1 MB. Session records older than 30 da
 
 ## Compatibility and limitations
 
-- Current version: [`v0.2.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.2.0).
+- Current source version: **0.2.1** (main); latest published GitHub Release: [`v0.2.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.2.0).
 - Automated tests run on macOS and Linux with Python 3.11, 3.12, and 3.13 in the repository CI workflow.
 - Python 3.11 or newer is required by the profile installer. Runtime helpers use only the Python standard library.
 - Packaged hook commands currently target macOS and Linux shells.
 - Codex Plugins are available in Codex CLI and the ChatGPT desktop app, but not in the IDE extension. The profile installer remains the compatibility path for the IDE extension.
 - Current reminder and manual-handoff coverage is documented in the [September 8 acceptance record](docs/smoke-test-2026-09-08.md). It distinguishes real host events, UI evidence, isolated tests, and continuation behavior. See [the walkthrough](docs/demo.md) and [release checklist](docs/release-checklist.md).
-- The [`codex://new` continuation opener](https://developers.openai.com/codex/app/commands/#deeplinks) is best effort. A successful OS dispatch requests a new composer with the prompt prefilled; it does not verify thread creation and never submits the prompt automatically. Press **Send**. If dispatch fails, the helper prints the complete startup prompt for manual use.
-- The desktop path uses native task listing and titled task creation, so the numbered title is applied at creation. The portable path may use stable App Server `thread/read`, but a restricted nested Host sandbox can prevent that lookup; it then falls back to the workspace name. Requested and verified title fields remain separate.
+- Automatic continuation uses native task controls or [App Server](https://learn.chatgpt.com/docs/app-server) to create a task in the current directory, verify cwd and title, and send the startup message once. An owned worker keeps the server alive through the initial turn; no Send is required.
+- The helper prefers the desktop-bundled CLI; `--codex-bin` or `CODEX_HANDOFF_CODEX_BIN` can select it explicitly. Source-title lookup uses `thread/read`, with a reported workspace-name fallback when unavailable.
+- Partial failures return known task IDs and the startup stage. Inspect the task before retrying to avoid duplicate creation or submission. If the private client receives an input or approval request, it interrupts the turn so the user can continue in that task.
+- Only explicit `--manual` uses [`codex://new`](https://developers.openai.com/codex/app/commands/#deeplinks) to prefill a composer, which requires Send. `--print-only` only constructs the prompt.
 - A validated handoff remains useful when automatic session opening is unavailable.
 
 ## Development
@@ -256,7 +258,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-The tests cover 5/10/15 reminders, silent intermediate/repeated events, resume/clear behavior, old-state migration, source-independent reminders, valid non-dispatching Stop output, identity helpers, doctor diagnostics, snapshot collection, handoff validation, deep-link semantics, installers, and package metadata. Use a Python 3.11+ interpreter for both commands.
+The tests cover 5/10/15 reminders, silent intermediate/repeated events, resume/clear behavior, old-state migration, source-independent reminders, valid non-dispatching Stop output, identity helpers, doctor diagnostics, snapshot collection, handoff validation, automatic continuation, partial failures, worker lifetime, manual deep-link semantics, installers, and package metadata. Use a Python 3.11+ interpreter for both commands.
 
 To build a release archive from a committed revision, run `python3 scripts/create_release.py --ref v0.2.0`. The archive reads committed Git content and file modes, excluding local edits and untracked files; it writes `dist/codex-handoff-v0.2.0.zip` and `dist/SHA256SUMS.txt`.
 

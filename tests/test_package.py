@@ -38,7 +38,7 @@ class PackageTests(unittest.TestCase):
             version = manifest["version"]
             readme = copy / "README.zh-CN.md"
             readme.write_text(
-                readme.read_text().replace(f"releases/tag/v{version}", "releases/tag/v0.0.0")
+                readme.read_text().replace(f"**{version}**", "**0.0.0**")
             )
             changelog = copy / "CHANGELOG.md"
             changelog.write_text(changelog.read_text().replace(f"## {version},", "## 0.0.0,"))

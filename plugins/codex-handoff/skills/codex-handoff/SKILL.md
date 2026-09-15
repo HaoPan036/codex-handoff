@@ -1,6 +1,6 @@
 ---
 name: codex-handoff
-description: Create or update docs/CODEX_HANDOFF.md from repository, Git, tests, and current-task evidence, validate it, and prepare a clean Codex continuation. Use only when the user explicitly invokes this skill or requests a handoff or clean session; a compaction reminder is not an invocation.
+description: Create or update docs/CODEX_HANDOFF.md from repository, Git, tests, and current-task evidence, validate it, and start a clean Codex continuation. Use only when the user explicitly invokes this skill or requests a handoff or clean session; a compaction reminder is not an invocation.
 ---
 
 # Codex handoff workflow
@@ -12,8 +12,8 @@ Move ongoing repository work into a clean Codex session using evidence that a fr
 1. Create or update `docs/CODEX_HANDOFF.md`.
 2. Verify it against current repository evidence.
 3. Validate the document with the bundled validator.
-4. Best-effort: open a clean Codex composer with the startup prompt prepared.
-   The user must press Send to start the continuation turn.
+4. Create a clean task in the exact current workspace and automatically send its startup prompt.
+   Manual composer preparation is only for an explicit manual request.
 5. End work in the old session after reporting the result.
 
 When the user requests `handoff only`, complete steps 1 through 3 and do not open another session.
@@ -111,7 +111,7 @@ git status --short -- docs/CODEX_HANDOFF.md
 
 Fix missing sections, unresolved placeholders, stale claims, unsupported certainty, contradictory status, oversized history, or vague next steps.
 
-### 5. Prepare the clean continuation
+### 5. Start the clean continuation
 
 Unless the user requested `handoff only`, prefer the host's native task controls when they are available:
 
@@ -123,7 +123,7 @@ Unless the user requested `handoff only`, prefer the host's native task controls
    python3 <skill-directory>/scripts/open_new_session.py <workspace-root> docs/CODEX_HANDOFF.md --source-thread-name <source-title> --print-only --json
    ```
 
-4. Use `list_projects` to match the exact workspace and call `create_thread` with its local environment, the returned `startup_prompt`, and the returned `requested_thread_name` as `title`. Do not specify a model or reasoning override. A successful native creation is the only path that may report the new task title as applied at creation time.
+4. Use `list_projects` to match the exact workspace and call `create_thread` with its local environment, the returned `startup_prompt`, and the returned `requested_thread_name` as `title`. Do not specify a model or reasoning override. Verify the returned task and startup status before reporting success.
 
 If native task controls are unavailable, the source task cannot be resolved, or the workspace cannot be matched to a saved project, run the portable fallback:
 
@@ -131,9 +131,13 @@ If native task controls are unavailable, the source task cannot be resolved, or 
 python3 <skill-directory>/scripts/open_new_session.py <workspace-root> docs/CODEX_HANDOFF.md --source-thread-id <source-thread-id> --json
 ```
 
-For a manual fallback with no source id, omit that option; the helper uses the workspace name. Outside a restricted nested Host sandbox, the portable helper can read an explicit source task name through the stable App Server `thread/read` method. It always increments a trailing sequence (`Name` to `Name2`, `Name2` to `Name3`) and puts the requested name at the start of the continuation instructions.
+The portable helper uses the documented App Server `thread/start`, `thread/name/set`, `thread/read`, and `turn/start` methods. It preserves the exact workspace path, including a worktree that is not a saved project. It verifies the cwd and numbered title before sending the startup prompt once. An owned background worker keeps the server alive until the initial turn completes, so ending the old session does not cancel it. No model or permission override is supplied.
 
-The portable fallback makes a best-effort attempt to pass a `codex://new` deep link to the local operating system. The official deep-link contract pre-fills the composer and does not submit the prompt. Treat `deep_link_dispatched` only as an operating-system dispatch receipt; it does not verify thread creation, prompt submission, turn start, or thread naming. Report the native task result (when used), `source_thread_name_verified`, `requested_thread_name`, and `thread_name_verified` separately. When fallback dispatch succeeds, tell the user to press Send. When it fails, use the returned `startup_prompt` in a new Codex composer. Either outcome leaves the verified handoff valid.
+If the source title is already verified by the host, pass `--source-thread-name <source-title>` instead. If neither title nor source id is available, the helper uses the workspace name and reports that fallback. It prefers the desktop-bundled CLI when available; `--codex-bin` or `CODEX_HANDOFF_CODEX_BIN` can select a working CLI explicitly.
+
+Report `thread_id`, `thread_creation_verified`, `thread_name_verified`, `prompt_submission_verified`, and `turn_started_verified` from the receipt. A partial failure may already have created a task or submitted a turn: inspect the reported task and recent tasks before retrying. Never automatically launch a second task or switch to a manual composer after an uncertain result. If the new turn requests interactive input or approval through the private client, the worker interrupts it; open that task for the user to continue there.
+
+Only when the user explicitly requests manual preparation, use `--manual --json`. That mode dispatches a `codex://new` deep link and requires Send; OS dispatch alone does not verify task creation or submission. `--print-only --json` constructs the prompt without opening or sending anything. Automatic startup failure leaves the verified handoff valid; report the actual failure instead of silently asking the user to send.
 
 Do not use `/fork`. The goal is a clean session that verifies the handoff against the repository.
 
@@ -144,7 +148,7 @@ Report only:
 - Handoff path.
 - Branch and HEAD used.
 - Verification commands and results.
-- The helper's separate dispatch and verification fields.
-- `User action required: press Send` whenever a composer was prepared.
+- New task id and the helper's creation, naming, and startup verification fields.
+- Any actual failure or required user action; mention Send only for explicitly requested manual mode.
 
 Do not continue feature implementation in the old session.

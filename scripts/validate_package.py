@@ -75,6 +75,7 @@ REQUIRED_FILES = [
     / "scripts"
     / "open_new_session.py",
     IDENTITY_HELPER_PATH,
+    SKILL_PATH.parent / "scripts" / "app_server_client.py",
     ROOT / "scripts" / "install_profile.py",
     ROOT / "scripts" / "doctor.py",
     ROOT / "scripts" / "uninstall_profile.py",
@@ -258,7 +259,7 @@ def main() -> int:
         "docs/assets/codex-handoff-flow.svg",
         "docs/demo.md",
         "docs/smoke-test-2026-09-08.md",
-        f"https://github.com/HaoPan036/codex-handoff/releases/tag/v{manifest_version}",
+        f"**{manifest_version}**",
     )
     for required in readme_requirements:
         if required not in readme:

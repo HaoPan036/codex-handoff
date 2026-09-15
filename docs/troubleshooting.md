@@ -66,22 +66,15 @@ Versions before `0.1.0` could emit no output on a normal `Stop`. The current Hoo
 
 ## A new composer opened but the continuation did not start
 
-This is the expected portable deep-link contract. `codex://new?...&prompt=...` opens a new local composer and sets its initial text; it does not submit the prompt. Press **Send** to start the continuation. Codex desktop normally uses native titled task creation instead when its task controls are available.
+Version 0.2.0 used an unsent deep-link composer when native task controls could not match a saved project. Version 0.2.1 automatically creates and starts the task in the exact workspace through App Server. Refresh the marketplace and reinstall the plugin; verify its installed version. A composer requiring Send is now only expected with explicit `--manual`.
 
-The helper reports these layers separately:
+The automatic receipt separates `thread_creation_verified`, `thread_name_verified`, `prompt_submission_verified`, and `turn_started_verified`, and includes `thread_id`, `turn_id`, and `launch_stage` when known. An uncertain result is not safe to repeat blindly: inspect the reported task and recent tasks first. Startup success confirms submission, not completion of the new task's work.
 
-```text
-deep_link_dispatched
-thread_creation_verified
-prompt_prefill_requested
-prompt_prefilled
-prompt_submission_verified
-turn_started_verified
-thread_name_verified
-user_action_required
-```
+## CLI startup fails
 
-`deep_link_dispatched=true` means only that the operating system accepted the URL. It is not proof of thread creation, prompt submission, turn start, or title assignment. Only a successful native task-creation receipt can verify that the requested title was applied at creation.
+The helper prefers the desktop-bundled CLI when available. An incompatible global npm CLI can fail or hang even when desktop works. Pass `--codex-bin /absolute/path/to/codex` or set `CODEX_HANDOFF_CODEX_BIN` to select a working executable. `--print-only --json --source-thread-id <id>` can verify title lookup without creating a task.
+
+The worker keeps its private server alive until the first turn completes. If that turn requests interactive input or approval, it is interrupted; continue in the created task. The helper cannot approve requests on the user's behalf.
 
 ## The next task did not inherit my numbered title
 
@@ -89,16 +82,16 @@ The desktop workflow matches the exact source task id, treats its title as untru
 
 In a restricted CLI or App Server continuation, nested App Server startup may be unable to initialize the Codex SQLite state. The helper reports this in `name_lookup_message` and falls back to the workspace name. Use `--source-thread-name "My Task2"` to supply an explicit portable title manually.
 
-## A new composer does not open
+## Explicit manual preparation
 
-Run the helper manually:
+Only when you want a prefilled composer instead of automatic startup, run:
 
 ```bash
 python3 ~/.agents/skills/codex-handoff/scripts/open_new_session.py \
-  /absolute/path/to/workspace docs/CODEX_HANDOFF.md --json
+  /absolute/path/to/workspace docs/CODEX_HANDOFF.md --manual --json
 ```
 
-When `deep_link_dispatched` is false, copy `startup_prompt` into a new Codex composer and press **Send**. The handoff file remains valid.
+`deep_link_dispatched` confirms only OS dispatch. Press Send in the composer. If dispatch fails, use the returned `startup_prompt` manually. Do not switch to this mode after an uncertain automatic submission until you have checked for an existing task.
 
 ## The wrong threshold is used
 

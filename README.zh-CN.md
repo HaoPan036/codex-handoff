@@ -28,7 +28,7 @@ Codex Handoff 帮你核实并传递继续工作所需的信息：在第 5、10�
 用户级安装脚本提供仅显式调用的 Skill 和提醒 Hook。安装前请用 `python3 --version` 确认版本为 3.11 或更高。
 
 ```bash
-git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
+git clone --branch main https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
@@ -106,7 +106,7 @@ $codex-handoff handoff only
 
 仅显式手动调用才启动交接，提醒本身不是授权。
 
-默认命令会在原生任务控制可用时创建带标题的干净任务；否则准备 composer 并要求用户按 **Send**。`handoff only` 在生成和校验完成后结束。
+默认命令创建带标题的干净任务并自动发送启动消息。原生任务控制无法匹配当前 worktree 时，通过 App Server 在相同目录启动；仅显式选择 `--manual` 才准备需要按 **Send** 的 composer。`handoff only` 在生成和校验完成后结束。
 
 ## `CODEX_HANDOFF.md` 包含什么
 
@@ -149,7 +149,7 @@ Hook 不会读取仓库文件或 transcript。它只接收生命周期事件元�
 安装脚本要求 Python 3.11 或更高版本，会把 Skill 和 Hook 直接安装到用户目录。
 
 ```bash
-git clone --branch v0.2.0 https://github.com/HaoPan036/codex-handoff.git
+git clone --branch main https://github.com/HaoPan036/codex-handoff.git
 cd codex-handoff
 bash install.sh 5
 ```
@@ -184,7 +184,7 @@ codex plugin marketplace add HaoPan036/codex-handoff
 
 随后在 Codex CLI 中打开 `/plugins`，或者在 ChatGPT 桌面端打开 Plugins Directory，安装 `Codex Handoff` 并新建 Session。通过 `/hooks` 查看 bundled Hook，确认完整定义后再授予信任。仓库中的 Marketplace 文件位于 `.agents/plugins/marketplace.json`，Plugin 包位于 `plugins/codex-handoff/`。
 
-升级时刷新 Marketplace，确认安装版本为 **0.2.0**，重启会话并重新检查 Hook。用户级安装与 Marketplace 是两种安装方式，只保留一套启用的 Hook。旧版已验证计数可以延续新提醒节奏，但旧的待交接状态不会自动执行。
+升级时刷新 Marketplace，确认安装版本为 **0.2.1**，重启会话并重新检查 Hook。用户级安装与 Marketplace 是两种安装方式，只保留一套启用的 Hook。旧版已验证计数可以延续新提醒节奏，但旧的待交接状态不会自动执行。
 
 命令格式和 Hook trust 流程参考 OpenAI 官方的 [Codex Plugin 打包文档](https://developers.openai.com/plugins/build/plugins) 与 [Codex Hooks 文档](https://developers.openai.com/codex/hooks)。
 
@@ -237,14 +237,16 @@ bash install.sh 5
 
 ## 兼容性与限制
 
-- 当前版本为 [`v0.2.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.2.0)。
+- 当前源码版本：**0.2.1**（main）；最近发布的 GitHub Release：[`v0.2.0`](https://github.com/HaoPan036/codex-handoff/releases/tag/v0.2.0)。
 - 仓库 CI 在 macOS 和 Linux 上使用 Python 3.11、3.12 和 3.13 运行自动化测试。
 - 用户级安装脚本要求 Python 3.11 或更高版本。运行时辅助脚本只使用 Python 标准库。
 - 当前打包的 Hook 命令面向 macOS 和 Linux shell。
 - Codex Plugin 可用于 Codex CLI 和 ChatGPT 桌面端，IDE Extension 暂不支持。IDE Extension 可以使用用户级安装脚本。
 - 当前提醒与手动交接的验证范围见 [9 月 8 日验收记录](docs/smoke-test-2026-09-08.md)，其中区分真实宿主事件、界面证据、隔离测试和续接行为。另见[操作演示](docs/demo.md)和[发布检查表](docs/release-checklist.md)。
-- [`codex://new` 续接能力](https://developers.openai.com/codex/app/commands/#deeplinks)采用尽力而为策略。OS dispatch 成功表示请求打开预填 prompt 的新 composer，不代表已验证 thread 创建，也绝不会自动提交 prompt。请按 **Send**。dispatch 失败时，helper 会输出完整的手动启动提示词。
-- 桌面端使用原生任务列表和带标题的任务创建，因此序号标题会在创建时直接应用。便携回退路径可以使用稳定的 App Server `thread/read`，但受限的嵌套 Host sandbox 可能阻止这次读取，此时会回退为 workspace 名称。请求名称与已验证名称仍分开报告。
+- 自动续接使用原生任务控制，或通过 [App Server](https://learn.chatgpt.com/docs/app-server) 在当前目录创建任务、核对目录和标题并发送一次启动消息。独立 worker 保持服务到首轮结束，无需用户再按 Send。
+- CLI 优先选桌面应用自带版本，也可用 `--codex-bin` 或 `CODEX_HANDOFF_CODEX_BIN` 指定。来源标题通过 `thread/read` 获取；无法核实时回退为 workspace 名称并如实报告。
+- 部分失败会返回已知任务 ID 和启动阶段，先检查该任务再重试，避免重复创建或重复发送。私有客户端收到交互输入或审批请求时会中断该轮，需要在任务中继续处理。
+- 只有显式 `--manual` 使用 [`codex://new`](https://developers.openai.com/codex/app/commands/#deeplinks) 预填 composer，此时需要按 Send。`--print-only` 仅生成提示词。
 - 自动打开失败不会影响已经校验完成的 handoff 文件。
 
 ## 开发与验证
@@ -256,7 +258,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-测试覆盖 5/10/15 次提醒、中间及重复事件静默、resume/clear、旧状态迁移、缺失 Skill 不阻塞提醒、Stop 不调度、identity helper、doctor、snapshot、handoff validator、deep-link 结果、安装升级和 Plugin metadata。两条命令均使用 Python 3.11+ 解释器。
+测试覆盖 5/10/15 次提醒、中间及重复事件静默、resume/clear、旧状态迁移、缺失 Skill 不阻塞提醒、Stop 不调度、identity helper、doctor、snapshot、handoff validator、自动续接、部分失败、worker 生命周期、手动 deep-link 结果、安装升级和 Plugin metadata。两条命令均使用 Python 3.11+ 解释器。
 
 从已提交版本构建发布包：`python3 scripts/create_release.py --ref v0.2.0`。打包器读取 Git 提交中的内容和文件权限，不包含本地修改或未跟踪文件；输出为 `dist/codex-handoff-v0.2.0.zip` 和 `dist/SHA256SUMS.txt`。
 
