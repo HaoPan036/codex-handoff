@@ -134,9 +134,12 @@ During handoff preparation, the Skill is instructed to:
 
 - update only `docs/CODEX_HANDOFF.md`
 - preserve staged, unstaged, and untracked work
-- avoid commit, push, reset, clean, discard, stash, archive, and delete actions unless explicitly requested
+- follow existing user authorization and repository rules for commits and pushes; preparing a handoff alone does not authorize them
+- avoid reset, clean, discard, stash, archive, delete, and unrelated rewrites without applicable user authorization
 - mark unverified material claims as `UNKNOWN`
 - exclude credentials, secrets, complete large logs, and full diffs
+
+Continuation prompts defer Git decisions to the latest user instructions and applicable repository rules. Temporary handoff limits expire with their stage; actual user restrictions persist within their scope. The generated prompt adds no new Git prohibition or publishing authority. Handoff records identify the source and scope of carried-forward restrictions instead of presenting template defaults as user preferences.
 
 The hook does not read repository files or transcripts. It receives lifecycle event metadata, updates a local counter and bounded audit log, and shows a non-blocking reminder at the configured milestone. It makes no network calls and performs no repository mutation. Codex Handoff has no telemetry.
 

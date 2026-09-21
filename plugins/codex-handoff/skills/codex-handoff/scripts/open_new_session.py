@@ -52,7 +52,10 @@ Before modifying anything:
 6. Briefly state the current status, the next concrete task, the files likely to change, the validation plan, and the main risk.
 7. Continue only the next concrete task recorded in section 9 of the handoff.
 
-Do not regenerate the handoff or open another session during startup. Do not commit or push unless I explicitly request it."""
+Do not regenerate the handoff or open another session during startup.
+The handoff preparation stage is complete. Temporary limits used only to prepare or verify that handoff do not govern subsequent work.
+For commits and pushes, follow the latest user instructions and applicable repository Git rules. Preserve any explicit user restriction that still covers the current task; do not infer a continuing restriction from a template default or a historical note that work was left uncommitted.
+This generated startup prompt adds neither a Git prohibition nor permission to publish changes, and must not be recorded as a direct user preference."""
 
 
 def build_url(workspace: Path, prompt: str) -> str:

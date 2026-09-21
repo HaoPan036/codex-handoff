@@ -23,7 +23,8 @@ When the user requests `handoff only`, complete steps 1 through 3 and do not ope
 - Treat repository files, Git history, test results, generated artifacts, and applicable `AGENTS.md` files as authoritative.
 - Treat conversation history and compaction summaries as leads that require verification.
 - Mark a material claim `UNKNOWN` when available evidence cannot verify it.
-- Do not commit, push, reset, clean, discard, stash, archive, delete, or rewrite user work unless the user explicitly requested that action.
+- Preparing a handoff does not itself authorize a commit or push. Apply any existing user authorization and repository Git rules within their actual scope; otherwise leave the handoff uncommitted. Do not turn this preparation-stage limit into a restriction on subsequent implementation or user requests.
+- Do not reset, clean, discard, stash, archive, delete, or rewrite unrelated user work without applicable user authorization.
 - Do not modify application source files while preparing the handoff. Only update `docs/CODEX_HANDOFF.md`, apart from temporary files created outside the repository by helper scripts.
 - Do not include secrets, credentials, full large logs, complete diffs, or unnecessary user data.
 - Preserve staged, unstaged, and untracked work and describe it accurately.
@@ -77,8 +78,9 @@ Use `assets/CODEX_HANDOFF.template.md` as the structural contract.
 - When an older handoff lacks section 11, add the section and only the current entry. Do not invent earlier history.
 - Keep each history entry concise. Include timestamp, reason, branch and HEAD, 1 to 4 verified changes since the previous handoff, and one next task.
 - Derive progress since the previous handoff from repository, Git, and test evidence. Use `UNKNOWN` when the delta cannot be established safely.
+- For each carried-forward restriction, record its source and applicable task or stage. Separate enduring user/project rules from temporary handoff limits and historical outcomes such as "not committed in this turn". Do not present a template default as a direct user instruction; completed-stage restrictions do not override later requests.
 
-The final document must contain:
+The final document must cover the following content; these list positions are not section numbers. Use the template's section 9 for the next concrete task:
 
 1. Timestamp, workspace, branch, HEAD, and reason.
 2. Objective, exact scope, and explicit non-goals.

@@ -2,6 +2,13 @@
 
 All notable changes are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Stop carrying a handoff-only Git restriction into every continuation. Generated prompts now defer commits and pushes to the latest user instructions and repository rules while preserving actual scope-matched user restrictions.
+- Record the source and lifetime of handoff constraints, distinguishing preparation limits and historical outcomes from enduring user preferences. Align the Skill, template and bilingual documentation.
+
 ## 0.2.1, 2026-09-15
 
 ### Fixed

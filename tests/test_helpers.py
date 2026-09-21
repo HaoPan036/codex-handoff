@@ -16,6 +16,15 @@ VERIFY_IDENTITY = SKILL / "scripts" / "verify_identity.py"
 TEMPLATE = SKILL / "assets" / "CODEX_HANDOFF.template.md"
 
 
+def assert_git_scope(test: unittest.TestCase, prompt: str) -> None:
+    """Check the Git policy actually delivered to the continuation."""
+    test.assertNotIn("Do not commit or push unless I explicitly request it", prompt)
+    test.assertIn("follow the latest user instructions and applicable repository Git rules", prompt)
+    test.assertIn("Preserve any explicit user restriction that still covers the current task", prompt)
+    test.assertIn("Temporary limits used only to prepare or verify that handoff", prompt)
+    test.assertIn("must not be recorded as a direct user preference", prompt)
+
+
 def run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, *args],
@@ -273,6 +282,7 @@ class HelperTests(unittest.TestCase):
             self.assertIn("秋招雷达3", output["startup_prompt"])
             self.assertIn("Read every applicable AGENTS.md", output["startup_prompt"])
             self.assertIn("docs/CODEX_HANDOFF.md", output["startup_prompt"])
+            assert_git_scope(self, output["startup_prompt"])
 
     def test_open_new_session_fallback_name_does_not_treat_version_as_sequence(
         self,

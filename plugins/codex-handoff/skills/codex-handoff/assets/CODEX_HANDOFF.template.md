@@ -46,7 +46,7 @@ Handoff reason: `<compaction threshold, milestone boundary, manual request, or o
 
 ### Invariants and constraints
 
-`<Rules that future work must preserve>`
+`<Rules that future work must preserve, with source and applicable task/stage; distinguish enduring user/project rules from temporary handoff limits and historical outcomes>`
 
 ### Rejected approaches
 

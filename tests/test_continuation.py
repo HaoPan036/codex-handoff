@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from test_helpers import OPEN, valid_handoff
+from test_helpers import OPEN, assert_git_scope, valid_handoff
 
 
 FAKE_SERVER = '''import json, os, sys, time
@@ -87,6 +87,7 @@ class ContinuationTests(unittest.TestCase):
         self.assertEqual(len(turns), 1)
         self.assertEqual(turns[0]["params"]["threadId"], receipt["thread_id"])
         self.assertEqual(turns[0]["params"]["input"][0]["text"], receipt["startup_prompt"])
+        assert_git_scope(self, turns[0]["params"]["input"][0]["text"])
         self.assertNotIn("model", turns[0]["params"])
         self.assertEqual(receipt["requested_thread_name"], "任务3")
         deadline = time.monotonic() + 3

@@ -134,9 +134,12 @@ $codex-handoff handoff only
 
 - 只更新 `docs/CODEX_HANDOFF.md`
 - 保留 staged、unstaged 和 untracked 工作
-- 未收到明确要求时，不执行 commit、push、reset、clean、discard、stash、archive 和 delete
+- commit、push 按已有用户授权和仓库规则处理；准备交接本身不构成提交或推送授权
+- 没有适用的用户授权时，不执行 reset、clean、discard、stash、archive、delete 或改写无关工作
 - 无法验证的重要结论标记为 `UNKNOWN`
 - 不写入凭证、密钥、大段完整日志和完整 diff
+
+续接提示中的 Git 决策遵循用户最新要求和适用的仓库规则。临时交接限制随阶段结束，真实的用户限制按原范围保留；生成的提示不新增 Git 禁令或发布权限。交接记录需写明限制的来源和适用范围，不把模板默认值描述成用户偏好。
 
 Hook 不会读取仓库文件或 transcript。它只接收生命周期事件元数据，更新本地计数和有大小限制的审计日志，并在配置的计数倍数显示非阻塞提醒。Hook 不访问网络，也不修改仓库。Codex Handoff 不收集 telemetry。
 
